@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+        "-//Puppy Crawl//DTD Check Configuration 1.3//EN"
+        "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!--
+    Basic ruleset based on Google Java Style Guide.
+    Checks for common code quality issues.
+-->
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+
+    <property name="severity" value="warning"/>
+
+    <property name="fileExtensions" value="java, properties, xml"/>
+
+    <!-- FileSet level checks (must be directly under Checker) -->
+    <module name="LineLength">
+        <property name="max" value="120"/>
+        <property name="ignorePattern"
+                  value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+    </module>
+
+    <!-- Tree walker for AST-based checks -->
+    <module name="TreeWalker">
+
+        <!-- Check that outer type name matches file name -->
+        <module name="OuterTypeFilename"/>
+
+        <!-- Markup checks -->
+        <module name="IllegalTokenText">
+            <property name="tokens" value="STRING_LITERAL, CHAR_LITERAL"/>
+            <property name="format"
+                      value="\\u00(08|09|0(a|A)|0(c|C)|0(d|D)|22|27|5(C|c))|\\(0(8|9|a|c|d)|1(0|1|2|3|4|5|6|7|8|9|a|b|c|d|e|f))"/>
+            <property name="message"
+                      value="Avoid using corresponding octal or Unicode escape sequences."/>
+        </module>
+        <module name="AvoidEscapedUnicodeCharacters">
+            <property name="allowEscapesForControlCharacters" value="true"/>
+            <property name="allowNonPrintableEscapes" value="true"/>
+        </module>
+        <module name="AvoidStarImport"/>
+        <module name="OneTopLevelClass"/>
+        <!-- Prevent line wrapping for certain elements -->
+        <module name="NoLineWrap"/>
+
+        <!-- Block checks -->
+        <module name="EmptyBlock"/>
+        <module name="NeedBraces"/>
+        <module name="LeftCurly"/>
+        <module name="RightCurly"/>
+
+        <!-- Code style checks -->
+        <module name="EmptyStatement"/>
+        <module name="EqualsHashCode"/>
+        <module name="IllegalInstantiation"/>
+        <module name="MissingSwitchDefault"/>
+        <module name="SimplifyBooleanExpression"/>
+        <module name="SimplifyBooleanReturn"/>
+
+        <!-- Miscellaneous -->
+        <module name="FinalClass"/>
+        <module name="HideUtilityClassConstructor"/>
+        <module name="InterfaceIsType"/>
+        <module name="VisibilityModifier"/>
+
+    </module>
+</module>

@@ -44,6 +44,8 @@ public class CheckstyleService {
             return stream
                     .filter(Files::isRegularFile)
                     .filter(path -> path.toString().endsWith(".java"))
+                    .filter(path -> !path.getFileName().toString().equals("module-info.java"))
+                    .filter(path -> !path.toString().contains("resources"))
                     .collect(Collectors.toList());
         }
     }

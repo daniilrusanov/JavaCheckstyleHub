@@ -40,6 +40,7 @@ public class CheckstyleConfigurationService {
             }
         } catch (Exception e) {
             System.err.println("Warning: Could not initialize default configuration on startup: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -129,10 +130,21 @@ public class CheckstyleConfigurationService {
 
     private String loadDefaultConfigurationXml() {
         try {
+            // Try ClassPathResource first
             ClassPathResource resource = new ClassPathResource(DEFAULT_CONFIG_FILE);
-            return new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            if (resource.exists()) {
+                return new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            }
+
+            // Fallback: Try finding it via class loader explicitly
+            var url = this.getClass().getClassLoader().getResource(DEFAULT_CONFIG_FILE);
+            if (url != null) {
+                 return new String(url.openStream().readAllBytes(), StandardCharsets.UTF_8);
+            }
+
+            throw new IOException("File not found in classpath: " + DEFAULT_CONFIG_FILE);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to load default Checkstyle configuration", e);
+            throw new RuntimeException("Failed to load default Checkstyle configuration: " + e.getMessage(), e);
         }
     }
 

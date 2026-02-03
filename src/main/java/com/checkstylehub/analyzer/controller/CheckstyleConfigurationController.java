@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/checkstyle")
-@CrossOrigin(origins = "*")
 public class CheckstyleConfigurationController {
 
     private final CheckstyleConfigurationService configurationService;

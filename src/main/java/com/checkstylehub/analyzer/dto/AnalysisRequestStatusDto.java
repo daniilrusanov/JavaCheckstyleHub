@@ -11,6 +11,8 @@ public class AnalysisRequestStatusDto {
     private String status;
     private String errorMessage;
     private LocalDateTime createdAt;
+    private String repoUrl;
+    private Long violationsCount;
 
     public AnalysisRequestStatusDto() {
     }
@@ -20,6 +22,12 @@ public class AnalysisRequestStatusDto {
         this.status = status;
         this.errorMessage = errorMessage;
         this.createdAt = createdAt;
+    }
+
+    public AnalysisRequestStatusDto(Long id, String status, String errorMessage, LocalDateTime createdAt, String repoUrl, Long violationsCount) {
+        this(id, status, errorMessage, createdAt);
+        this.repoUrl = repoUrl;
+        this.violationsCount = violationsCount;
     }
 
     public Long getId() {
@@ -52,5 +60,21 @@ public class AnalysisRequestStatusDto {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getRepoUrl() {
+        return repoUrl;
+    }
+
+    public void setRepoUrl(String repoUrl) {
+        this.repoUrl = repoUrl;
+    }
+
+    public Long getViolationsCount() {
+        return violationsCount;
+    }
+
+    public void setViolationsCount(Long violationsCount) {
+        this.violationsCount = violationsCount;
     }
 }

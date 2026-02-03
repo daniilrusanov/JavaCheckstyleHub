@@ -5,11 +5,13 @@ import com.checkstylehub.analyzer.dto.AnalysisRequestStatusDto;
 import com.checkstylehub.analyzer.dto.AnalysisResultDto;
 import com.checkstylehub.analyzer.entity.AnalysisRequest;
 import com.checkstylehub.analyzer.entity.AnalysisResult;
+import com.checkstylehub.analyzer.entity.User;
 import com.checkstylehub.analyzer.repository.AnalysisRequestRepository;
 import com.checkstylehub.analyzer.repository.AnalysisResultRepository;
 import com.checkstylehub.analyzer.service.AnalysisService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -23,7 +25,6 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "*")
 public class AnalysisController {
 
     private final AnalysisService analysisService;
@@ -42,15 +43,21 @@ public class AnalysisController {
      * Initiates a new Checkstyle analysis for the specified repository.
      *
      * @param requestDto DTO containing repository URL and optional Checkstyle configuration
+     * @param user the authenticated user (automatically injected by Spring Security)
      * @return ResponseEntity with the created request ID
      */
     @PostMapping("/analyze")
-    public ResponseEntity<Long> startAnalysis(@RequestBody AnalysisRequestDto requestDto) {
+    public ResponseEntity<Long> startAnalysis(
+            @RequestBody AnalysisRequestDto requestDto,
+            @AuthenticationPrincipal User user) {
         if (requestDto.getRepoUrl() == null || requestDto.getRepoUrl().isBlank()) {
             return ResponseEntity.badRequest().build();
         }
 
         AnalysisRequest request = new AnalysisRequest(requestDto.getRepoUrl());
+        if (user != null) {
+            request.setUser(user);
+        }
         AnalysisRequest savedRequest = requestRepository.save(request);
         analysisService.startAnalysisFlow(savedRequest.getId(), requestDto.getCheckstyleConfig());
 

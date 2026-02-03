@@ -6,7 +6,13 @@ import com.checkstylehub.analyzer.dto.CodeAnalysisResponseDto.CompilationError;
 import com.puppycrawl.tools.checkstyle.api.AuditEvent;
 import org.springframework.stereotype.Service;
 
-import javax.tools.*;
+import javax.tools.Diagnostic;
+import javax.tools.DiagnosticCollector;
+import javax.tools.JavaCompiler;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.ToolProvider;
+
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.Files;
@@ -24,18 +30,18 @@ import java.util.regex.Pattern;
  */
 @Service
 public class DirectCodeAnalysisService {
-    
+
     private final CheckstyleService checkstyleService;
-    
+
     // Pattern to extract class name from Java code
     private static final Pattern CLASS_NAME_PATTERN = Pattern.compile(
         "(?:public\\s+)?(?:abstract\\s+)?(?:final\\s+)?class\\s+(\\w+)"
     );
-    
+
     public DirectCodeAnalysisService(CheckstyleService checkstyleService) {
         this.checkstyleService = checkstyleService;
     }
-    
+
     /**
      * Analyzes Java code directly without requiring a Git repository.
      *
@@ -45,44 +51,44 @@ public class DirectCodeAnalysisService {
      * @param customConfigXml  optional custom Checkstyle configuration
      * @return analysis results including violations and optional compilation status
      */
-    public CodeAnalysisResponseDto analyzeCode(String code, String fileName, 
+    public CodeAnalysisResponseDto analyzeCode(String code, String fileName,
             boolean checkCompilation, String customConfigXml) {
-        
+
         if (code == null || code.trim().isEmpty()) {
             return CodeAnalysisResponseDto.error("Код не може бути порожнім");
         }
-        
+
         Path tempDir = null;
         try {
             // Create temporary directory
             tempDir = Files.createTempDirectory("checkstyle-direct-");
-            
+
             // Determine filename from class name or use provided/default
             String actualFileName = determineFileName(code, fileName);
-            
+
             // Write code to temporary file
             Path javaFile = tempDir.resolve(actualFileName);
             Files.writeString(javaFile, code);
-            
+
             CodeAnalysisResponseDto response = new CodeAnalysisResponseDto();
             response.setSuccess(true);
-            
+
             // Check compilation if requested
             if (checkCompilation) {
                 List<CompilationError> compilationErrors = checkCompilation(javaFile, code);
                 response.setCompilationSuccess(compilationErrors.isEmpty());
                 response.setCompilationErrors(compilationErrors);
             }
-            
+
             // Run Checkstyle analysis
             List<Path> javaFiles = Collections.singletonList(javaFile);
             List<AnalysisResultDto> violationDtos = new ArrayList<>();
-            
+
             try {
                 List<AuditEvent> violations = checkstyleService.runCheckstyle(
                     tempDir, javaFiles, customConfigXml
                 );
-                
+
                 // Convert to DTOs
                 for (AuditEvent event : violations) {
                     violationDtos.add(new AnalysisResultDto(
@@ -112,17 +118,17 @@ public class DirectCodeAnalysisService {
                     "Код містить критичні синтаксичні помилки і не може бути проаналізований"
                 ));
             }
-            
+
             response.setViolations(violationDtos);
             response.setViolationCount(violationDtos.size());
-            
+
             // Calculate quality score
-            int qualityScore = calculateQualityScore(code, violationDtos.size(), 
+            int qualityScore = calculateQualityScore(code, violationDtos.size(),
                 response.getCompilationSuccess());
             response.setQualityScore(qualityScore);
-            
+
             return response;
-            
+
         } catch (Exception e) {
             // Handle truly unexpected errors gracefully
             String userMessage = "Не вдалося проаналізувати код. ";
@@ -137,11 +143,11 @@ public class DirectCodeAnalysisService {
             if (tempDir != null) {
                 try {
                     deleteDirectory(tempDir);
-                } catch (IOException ignored) {}
+                } catch (IOException ignored) { }
             }
         }
     }
-    
+
     /**
      * Determines the appropriate filename based on the class name in the code.
      */
@@ -153,17 +159,17 @@ public class DirectCodeAnalysisService {
             }
             return providedFileName;
         }
-        
+
         // Try to extract class name from code
         Matcher matcher = CLASS_NAME_PATTERN.matcher(code);
         if (matcher.find()) {
             return matcher.group(1) + ".java";
         }
-        
+
         // Default filename
         return "Main.java";
     }
-    
+
     /**
      * Checks if the Java code compiles successfully using the Java Compiler API.
      *
@@ -173,31 +179,31 @@ public class DirectCodeAnalysisService {
      */
     private List<CompilationError> checkCompilation(Path javaFile, String code) {
         List<CompilationError> errors = new ArrayList<>();
-        
+
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
             // JDK not available (running in JRE)
-            errors.add(new CompilationError(0, 0, 
+            errors.add(new CompilationError(0, 0,
                 "Компілятор Java недоступний (потрібен JDK)", "ERROR"));
             return errors;
         }
-        
+
         DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         StandardJavaFileManager fileManager = compiler.getStandardFileManager(
             diagnostics, Locale.getDefault(), null
         );
-        
+
         try {
-            Iterable<? extends JavaFileObject> compilationUnits = 
+            Iterable<? extends JavaFileObject> compilationUnits =
                 fileManager.getJavaFileObjects(javaFile.toFile());
-            
+
             StringWriter output = new StringWriter();
             JavaCompiler.CompilationTask task = compiler.getTask(
                 output, fileManager, diagnostics, null, null, compilationUnits
             );
-            
+
             boolean success = task.call();
-            
+
             if (!success) {
                 for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
                     if (diagnostic.getKind() == Diagnostic.Kind.ERROR) {
@@ -210,19 +216,19 @@ public class DirectCodeAnalysisService {
                     }
                 }
             }
-            
+
         } catch (Exception e) {
-            errors.add(new CompilationError(0, 0, 
+            errors.add(new CompilationError(0, 0,
                 "Помилка компіляції: " + e.getMessage(), "ERROR"));
         } finally {
             try {
                 fileManager.close();
-            } catch (IOException ignored) {}
+            } catch (IOException ignored) { }
         }
-        
+
         return errors;
     }
-    
+
     /**
      * Calculates a quality score (0-100) based on various factors.
      *
@@ -234,18 +240,18 @@ public class DirectCodeAnalysisService {
     private int calculateQualityScore(String code, int violationCount, Boolean compilationSuccess) {
         // Start with 100
         int score = 100;
-        
+
         // If compilation failed, cap at 50
         if (compilationSuccess != null && !compilationSuccess) {
             score = Math.min(score, 50);
         }
-        
+
         // Count lines of code (approximate)
         int lineCount = code.split("\n").length;
-        
+
         // Calculate violations per line ratio
         double violationsPerLine = lineCount > 0 ? (double) violationCount / lineCount : 0;
-        
+
         // Deduct points based on violations per line
         // More than 0.5 violations per line is very bad
         if (violationsPerLine > 0.5) {
@@ -259,7 +265,7 @@ public class DirectCodeAnalysisService {
         } else if (violationsPerLine > 0.05) {
             score -= 5;
         }
-        
+
         // Additional penalty for absolute number of violations
         if (violationCount > 20) {
             score -= 15;
@@ -268,10 +274,10 @@ public class DirectCodeAnalysisService {
         } else if (violationCount > 5) {
             score -= 5;
         }
-        
+
         return Math.max(0, Math.min(100, score));
     }
-    
+
     /**
      * Recursively deletes a directory.
      */
@@ -282,7 +288,7 @@ public class DirectCodeAnalysisService {
                 .forEach(path -> {
                     try {
                         Files.delete(path);
-                    } catch (IOException ignored) {}
+                    } catch (IOException ignored) { }
                 });
         }
     }

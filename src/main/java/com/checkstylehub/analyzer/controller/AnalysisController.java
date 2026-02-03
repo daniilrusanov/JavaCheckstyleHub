@@ -16,7 +16,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -116,7 +121,7 @@ public class AnalysisController {
 
         return ResponseEntity.ok(dtoList);
     }
-    
+
     /**
      * Analyzes Java code submitted directly (without a GitHub repository).
      * Ideal for students and quick code checks.
@@ -129,19 +134,18 @@ public class AnalysisController {
     public ResponseEntity<CodeAnalysisResponseDto> analyzeCode(
             @RequestBody CodeAnalysisRequestDto requestDto,
             @AuthenticationPrincipal User user) {
-        
         if (requestDto.getCode() == null || requestDto.getCode().trim().isEmpty()) {
             return ResponseEntity.badRequest()
                     .body(CodeAnalysisResponseDto.error("Код не може бути порожнім"));
         }
-        
+
         CodeAnalysisResponseDto response = directCodeAnalysisService.analyzeCode(
                 requestDto.getCode(),
                 requestDto.getFileName(),
                 requestDto.isCheckCompilation(),
                 requestDto.getCheckstyleConfig()
         );
-        
+
         return ResponseEntity.ok(response);
     }
 }

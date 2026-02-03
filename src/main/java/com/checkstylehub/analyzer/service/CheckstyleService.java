@@ -84,8 +84,9 @@ public class CheckstyleService {
 
                 @Override
                 public void addError(AuditEvent event) {
-                    if (event.getSeverityLevel() == SeverityLevel.ERROR ||
-                            event.getSeverityLevel() == SeverityLevel.WARNING) {
+                    // Collect all violations - INFO, WARNING, and ERROR
+                    // IGNORE level is not reported by Checkstyle at all
+                    if (event.getSeverityLevel() != SeverityLevel.IGNORE) {
                         violations.add(event);
                     }
                 }

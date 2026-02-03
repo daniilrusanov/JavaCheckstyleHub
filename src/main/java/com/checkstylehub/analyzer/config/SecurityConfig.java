@@ -22,6 +22,10 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.web.filter.CorsFilter;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -54,13 +58,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/ws-analyzer/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
-                        // Analysis endpoints
-                        .requestMatchers(HttpMethod.POST, "/api/analyze").authenticated()
-                        // Direct code analysis - allow for all (students don't need to log in)
-                        .requestMatchers(HttpMethod.POST, "/api/analyze/code").permitAll()
+                        // Analysis endpoints - allow all, controller handles auth
+                        .requestMatchers("/api/analyze/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/status/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/results/**").permitAll()
-                        // Checkstyle configuration - allow all for now (can be restricted later)
+                        // Checkstyle configuration
                         .requestMatchers("/api/checkstyle/**").permitAll()
                         // User-specific endpoints
                         .requestMatchers("/api/user/**").authenticated()
@@ -79,13 +81,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Allow localhost with and without ports for development and Docker
-        configuration.setAllowedOriginPatterns(List.of(
-                "http://localhost",
-                "http://localhost:*",
-                "http://127.0.0.1",
-                "http://127.0.0.1:*"
-        ));
+        // Allow all origins for development - use patterns for flexibility
+        configuration.setAllowedOriginPatterns(List.of("*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization", "Content-Type"));
@@ -113,5 +110,11 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    @Order(Ordered.HIGHEST_PRECEDENCE)
+    public CorsFilter corsFilter() {
+        return new CorsFilter(corsConfigurationSource());
     }
 }

@@ -18,6 +18,15 @@ spring.datasource.hikari.auto-commit=true
 # Docker Compose
 spring.docker.compose.enabled=false
 
+# JWT Configuration
+jwt.secret=YOUR_JWT_SECRET_KEY_MUST_BE_AT_LEAST_256_BITS_LONG
+jwt.expiration=86400000
+
+# Default Admin User
+admin.username=admin
+admin.email=admin@checkstylehub.com
+admin.password=admin123
+
 # Alternative: H2 In-Memory Database (for development/testing)
 # Uncomment the lines below and comment out MySQL configuration above
 # spring.datasource.url=jdbc:h2:mem:checkstyle_hub;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE

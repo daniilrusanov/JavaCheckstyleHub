@@ -5,9 +5,11 @@ import com.checkstylehub.analyzer.dto.AnalysisRequestStatusDto;
 import com.checkstylehub.analyzer.dto.AnalysisResultDto;
 import com.checkstylehub.analyzer.entity.AnalysisRequest;
 import com.checkstylehub.analyzer.entity.AnalysisResult;
+import com.checkstylehub.analyzer.entity.User;
 import com.checkstylehub.analyzer.repository.AnalysisRequestRepository;
 import com.checkstylehub.analyzer.repository.AnalysisResultRepository;
 import com.checkstylehub.analyzer.service.AnalysisService;
+import com.checkstylehub.analyzer.service.DirectCodeAnalysisService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,6 +36,9 @@ class AnalysisControllerTest {
 
     @Mock
     private AnalysisService analysisService;
+
+    @Mock
+    private DirectCodeAnalysisService directCodeAnalysisService;
 
     @Mock
     private AnalysisRequestRepository requestRepository;
@@ -64,7 +69,7 @@ class AnalysisControllerTest {
         when(requestRepository.save(any(AnalysisRequest.class))).thenReturn(savedRequest);
         doNothing().when(analysisService).startAnalysisFlow(anyLong(), anyString());
 
-        ResponseEntity<Long> response = analysisController.startAnalysis(requestDto);
+        ResponseEntity<Long> response = analysisController.startAnalysis(requestDto, null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(1L, response.getBody());
@@ -82,7 +87,7 @@ class AnalysisControllerTest {
         AnalysisRequestDto requestDto = new AnalysisRequestDto();
         requestDto.setRepoUrl("");
 
-        ResponseEntity<Long> response = analysisController.startAnalysis(requestDto);
+        ResponseEntity<Long> response = analysisController.startAnalysis(requestDto, null);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verify(requestRepository, never()).save(any());
@@ -99,7 +104,7 @@ class AnalysisControllerTest {
         AnalysisRequestDto requestDto = new AnalysisRequestDto();
         requestDto.setRepoUrl(null);
 
-        ResponseEntity<Long> response = analysisController.startAnalysis(requestDto);
+        ResponseEntity<Long> response = analysisController.startAnalysis(requestDto, null);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
 
@@ -222,7 +227,7 @@ class AnalysisControllerTest {
         when(requestRepository.save(any(AnalysisRequest.class))).thenReturn(savedRequest);
         doNothing().when(analysisService).startAnalysisFlow(anyLong(), anyString());
 
-        ResponseEntity<Long> response = analysisController.startAnalysis(requestDto);
+        ResponseEntity<Long> response = analysisController.startAnalysis(requestDto, null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(2L, response.getBody());

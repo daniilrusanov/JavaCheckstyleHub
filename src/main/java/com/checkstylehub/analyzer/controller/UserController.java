@@ -85,18 +85,18 @@ public class UserController {
             if (user == null) {
                 return ResponseEntity.status(401).build();
             }
-            
+
             ExperienceLevel level = ExperienceLevel.valueOf(levelStr.toUpperCase());
             user.setExperienceLevel(level);
             userRepository.save(user);
-            
+
             // Also update settings timestamp since experience level is part of user settings
             userSettingsRepository.findByUserId(user.getId())
                     .ifPresent(settings -> {
                         settings.setUpdatedAt(java.time.LocalDateTime.now());
                         userSettingsRepository.save(settings);
                     });
-            
+
             return ResponseEntity.ok(new UserDto(user));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
@@ -147,16 +147,19 @@ public class UserController {
      * Get user's analysis history.
      */
     @GetMapping("/history")
-    public ResponseEntity<List<AnalysisRequestStatusDto>> getAnalysisHistory(@AuthenticationPrincipal User user) {
+    public ResponseEntity<List<AnalysisRequestStatusDto>> getAnalysisHistory(
+            @AuthenticationPrincipal User user) {
         if (user == null) {
             return ResponseEntity.status(401).build();
         }
 
-        List<AnalysisRequest> requests = analysisRequestRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
+        List<AnalysisRequest> requests =
+                analysisRequestRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
         List<AnalysisRequestStatusDto> history = requests.stream()
                 .map(req -> {
-                    Long violationsCount = req.getStatus() == AnalysisRequest.RequestStatus.COMPLETED 
-                            ? analysisResultRepository.countByRequestId(req.getId()) 
+                    Long violationsCount =
+                            req.getStatus() == AnalysisRequest.RequestStatus.COMPLETED
+                            ? analysisResultRepository.countByRequestId(req.getId())
                             : null;
                     return new AnalysisRequestStatusDto(
                             req.getId(),
@@ -181,8 +184,9 @@ public class UserController {
             return ResponseEntity.status(401).build();
         }
 
-        List<AnalysisRequest> requests = analysisRequestRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
-        
+        List<AnalysisRequest> requests =
+                analysisRequestRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
+
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalAnalyses", requests.size());
         stats.put("completedAnalyses", requests.stream()
@@ -191,14 +195,14 @@ public class UserController {
         stats.put("failedAnalyses", requests.stream()
                 .filter(r -> r.getStatus() == AnalysisRequest.RequestStatus.FAILED)
                 .count());
-        
+
         // Count total violations across all completed analyses
         long totalViolations = requests.stream()
                 .filter(r -> r.getStatus() == AnalysisRequest.RequestStatus.COMPLETED)
                 .mapToLong(r -> analysisResultRepository.countByRequestId(r.getId()))
                 .sum();
         stats.put("totalViolations", totalViolations);
-        
+
         // Get unique repositories analyzed
         long uniqueRepos = requests.stream()
                 .map(AnalysisRequest::getRepoUrl)

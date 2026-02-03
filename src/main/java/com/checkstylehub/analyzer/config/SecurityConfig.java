@@ -54,8 +54,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/ws-analyzer/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
-                        // Analysis endpoints - allow authenticated users
+                        // Analysis endpoints
                         .requestMatchers(HttpMethod.POST, "/api/analyze").authenticated()
+                        // Direct code analysis - allow for all (students don't need to log in)
+                        .requestMatchers(HttpMethod.POST, "/api/analyze/code").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/status/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/results/**").permitAll()
                         // Checkstyle configuration - allow all for now (can be restricted later)

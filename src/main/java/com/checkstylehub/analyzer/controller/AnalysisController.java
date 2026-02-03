@@ -3,12 +3,15 @@ package com.checkstylehub.analyzer.controller;
 import com.checkstylehub.analyzer.dto.AnalysisRequestDto;
 import com.checkstylehub.analyzer.dto.AnalysisRequestStatusDto;
 import com.checkstylehub.analyzer.dto.AnalysisResultDto;
+import com.checkstylehub.analyzer.dto.CodeAnalysisRequestDto;
+import com.checkstylehub.analyzer.dto.CodeAnalysisResponseDto;
 import com.checkstylehub.analyzer.entity.AnalysisRequest;
 import com.checkstylehub.analyzer.entity.AnalysisResult;
 import com.checkstylehub.analyzer.entity.User;
 import com.checkstylehub.analyzer.repository.AnalysisRequestRepository;
 import com.checkstylehub.analyzer.repository.AnalysisResultRepository;
 import com.checkstylehub.analyzer.service.AnalysisService;
+import com.checkstylehub.analyzer.service.DirectCodeAnalysisService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,13 +31,16 @@ import java.util.stream.Collectors;
 public class AnalysisController {
 
     private final AnalysisService analysisService;
+    private final DirectCodeAnalysisService directCodeAnalysisService;
     private final AnalysisRequestRepository requestRepository;
     private final AnalysisResultRepository resultRepository;
 
     public AnalysisController(AnalysisService analysisService,
+                              DirectCodeAnalysisService directCodeAnalysisService,
                               AnalysisRequestRepository requestRepository,
                               AnalysisResultRepository resultRepository) {
         this.analysisService = analysisService;
+        this.directCodeAnalysisService = directCodeAnalysisService;
         this.requestRepository = requestRepository;
         this.resultRepository = resultRepository;
     }
@@ -109,5 +115,33 @@ public class AnalysisController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(dtoList);
+    }
+    
+    /**
+     * Analyzes Java code submitted directly (without a GitHub repository).
+     * Ideal for students and quick code checks.
+     *
+     * @param requestDto DTO containing the Java code to analyze
+     * @param user the authenticated user (optional, automatically injected)
+     * @return ResponseEntity with analysis results including violations and compilation status
+     */
+    @PostMapping("/analyze/code")
+    public ResponseEntity<CodeAnalysisResponseDto> analyzeCode(
+            @RequestBody CodeAnalysisRequestDto requestDto,
+            @AuthenticationPrincipal User user) {
+        
+        if (requestDto.getCode() == null || requestDto.getCode().trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(CodeAnalysisResponseDto.error("Код не може бути порожнім"));
+        }
+        
+        CodeAnalysisResponseDto response = directCodeAnalysisService.analyzeCode(
+                requestDto.getCode(),
+                requestDto.getFileName(),
+                requestDto.isCheckCompilation(),
+                requestDto.getCheckstyleConfig()
+        );
+        
+        return ResponseEntity.ok(response);
     }
 }

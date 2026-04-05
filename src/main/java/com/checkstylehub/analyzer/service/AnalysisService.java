@@ -40,6 +40,7 @@ public class AnalysisService {
     private final EntityManager entityManager;
     private final RedisTemplate<String, CachedAnalysisBundle> redisTemplate;
     private final TransactionTemplate transactionTemplate;
+    private final CheckstyleConfigurationService configurationService;
 
     public AnalysisService(GitService gitService,
                            CheckstyleService checkstyleService,
@@ -52,7 +53,8 @@ public class AnalysisService {
                            EntityManager entityManager,
                            @Qualifier("analysisResultsRedisTemplate")
                            RedisTemplate<String, CachedAnalysisBundle> redisTemplate,
-                           TransactionTemplate transactionTemplate) {
+                           TransactionTemplate transactionTemplate,
+                           CheckstyleConfigurationService configurationService) {
         this.gitService = gitService;
         this.checkstyleService = checkstyleService;
         this.pmdService = pmdService;
@@ -64,6 +66,7 @@ public class AnalysisService {
         this.entityManager = entityManager;
         this.redisTemplate = redisTemplate;
         this.transactionTemplate = transactionTemplate;
+        this.configurationService = configurationService;
     }
 
     /**
@@ -88,7 +91,13 @@ public class AnalysisService {
 
             logInfo("Перевіряю кеш та отримую останній коміт з віддаленого репозиторію...", logTopic);
             String commitHash = gitService.getLatestCommitHash(repoUrl);
-            cacheKey = repoUrl + "_" + commitHash;
+
+            String effectiveConfig = (customCheckstyleConfig != null && !customCheckstyleConfig.isBlank())
+                    ? customCheckstyleConfig
+                    : configurationService.getActiveConfigurationXml();
+            String configHash = org.springframework.util.DigestUtils.md5DigestAsHex(
+                    effectiveConfig.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            cacheKey = repoUrl + "_" + commitHash + "_" + configHash;
 
             CachedAnalysisBundle cached = null;
             try {

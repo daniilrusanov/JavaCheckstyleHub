@@ -1,7 +1,6 @@
 package com.checkstylehub.analyzer.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,7 +12,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.AccessLevel;
 import org.hibernate.annotations.ColumnDefault;
 
 import java.util.Objects;
@@ -25,6 +27,9 @@ import java.util.Objects;
 @Entity
 @Table(name = "analysis_results")
 @JsonIgnoreProperties(ignoreUnknown = true, value = {"id", "request"})
+@Getter
+@Setter
+@NoArgsConstructor
 public class AnalysisResult {
 
     @Id
@@ -47,6 +52,8 @@ public class AnalysisResult {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String message;
 
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
     @Enumerated(EnumType.STRING)
     @Column(name = "analyzer_type", nullable = false, length = 32)
     @ColumnDefault("'CHECKSTYLE'")
@@ -56,68 +63,14 @@ public class AnalysisResult {
     @Column(columnDefinition = "TEXT")
     private String codeSnippet;
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public AnalysisRequest getRequest() {
-        return request;
-    }
-
-    public void setRequest(AnalysisRequest request) {
-        this.request = request;
-    }
-
-    public String getFilePath() {
-        return filePath;
-    }
-
-    public void setFilePath(String filePath) {
-        this.filePath = filePath;
-    }
-
-    public int getLineNumber() {
-        return lineNumber;
-    }
-
-    public void setLineNumber(int lineNumber) {
-        this.lineNumber = lineNumber;
-    }
-
-    public String getSeverity() {
-        return severity;
-    }
-
-    public void setSeverity(String severity) {
-        this.severity = severity;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
+    /** Null-safe getter — defaults to CHECKSTYLE for legacy rows that have no type set. */
     public AnalyzerType getAnalyzerType() {
         return analyzerType != null ? analyzerType : AnalyzerType.CHECKSTYLE;
     }
 
+    /** Null-safe setter — silently coerces null to CHECKSTYLE. */
     public void setAnalyzerType(AnalyzerType analyzerType) {
         this.analyzerType = analyzerType != null ? analyzerType : AnalyzerType.CHECKSTYLE;
-    }
-
-    public String getCodeSnippet() {
-        return codeSnippet;
-    }
-
-    public void setCodeSnippet(String codeSnippet) {
-        this.codeSnippet = codeSnippet;
     }
 
     @Override

@@ -5,6 +5,7 @@ import com.checkstylehub.analyzer.dto.CodeAnalysisResponseDto;
 import com.checkstylehub.analyzer.dto.CodeAnalysisResponseDto.CompilationError;
 import com.checkstylehub.analyzer.entity.AnalyzerType;
 import com.puppycrawl.tools.checkstyle.api.AuditEvent;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import javax.tools.Diagnostic;
@@ -30,6 +31,7 @@ import java.util.regex.Pattern;
  * Supports single file analysis with optional compilation checking.
  */
 @Service
+@RequiredArgsConstructor
 public class DirectCodeAnalysisService {
 
     private final CheckstyleService checkstyleService;
@@ -40,14 +42,6 @@ public class DirectCodeAnalysisService {
     private static final Pattern CLASS_NAME_PATTERN = Pattern.compile(
         "(?:public\\s+)?(?:abstract\\s+)?(?:final\\s+)?class\\s+(\\w+)"
     );
-
-    public DirectCodeAnalysisService(CheckstyleService checkstyleService,
-                                     PmdService pmdService,
-                                     MetricsCalculationService metricsCalculationService) {
-        this.checkstyleService = checkstyleService;
-        this.pmdService = pmdService;
-        this.metricsCalculationService = metricsCalculationService;
-    }
 
     /**
      * Analyzes Java code directly without requiring a Git repository.
@@ -107,7 +101,8 @@ public class DirectCodeAnalysisService {
                         event.getLine(),
                         event.getSeverityLevel().getName(),
                         event.getMessage(),
-                        AnalyzerType.CHECKSTYLE
+                        AnalyzerType.CHECKSTYLE,
+                        null
                     ));
                 }
                 checkstyleCompleted = true;
@@ -135,7 +130,8 @@ public class DirectCodeAnalysisService {
                     1,
                     "ERROR",
                     "Код містить критичні синтаксичні помилки і не може бути проаналізований",
-                    AnalyzerType.CHECKSTYLE
+                    AnalyzerType.CHECKSTYLE,
+                    null
                 ));
             }
 
@@ -148,7 +144,8 @@ public class DirectCodeAnalysisService {
                             v.line(),
                             v.severity(),
                             v.message(),
-                            AnalyzerType.PMD
+                            AnalyzerType.PMD,
+                            null
                     ));
                 }
             }

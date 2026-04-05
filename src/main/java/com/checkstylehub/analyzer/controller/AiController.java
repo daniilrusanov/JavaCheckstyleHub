@@ -6,6 +6,7 @@ import com.checkstylehub.analyzer.entity.User;
 import com.checkstylehub.analyzer.repository.AiExplanationRepository;
 import com.checkstylehub.analyzer.repository.AnalysisResultRepository;
 import com.checkstylehub.analyzer.service.AiExplanationService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,19 +26,12 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
  */
 @RestController
 @RequestMapping("/api/ai")
+@RequiredArgsConstructor
 public class AiController {
 
     private final AnalysisResultRepository resultRepository;
     private final AiExplanationRepository explanationRepository;
     private final AiExplanationService aiExplanationService;
-
-    public AiController(AnalysisResultRepository resultRepository,
-                        AiExplanationRepository explanationRepository,
-                        AiExplanationService aiExplanationService) {
-        this.resultRepository = resultRepository;
-        this.explanationRepository = explanationRepository;
-        this.aiExplanationService = aiExplanationService;
-    }
 
     /**
      * Generates (or returns a cached) AI explanation for a single analysis finding.

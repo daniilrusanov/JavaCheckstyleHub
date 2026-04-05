@@ -2,6 +2,7 @@ package com.checkstylehub.analyzer.service;
 
 import com.checkstylehub.analyzer.entity.User;
 import com.checkstylehub.analyzer.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -12,13 +13,10 @@ import org.springframework.stereotype.Service;
  * Implements UserDetailsService for Spring Security integration.
  */
 @Service
+@RequiredArgsConstructor
 public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
-
-    public UserService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {

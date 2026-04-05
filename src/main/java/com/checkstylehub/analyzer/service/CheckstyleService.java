@@ -7,6 +7,7 @@ import com.puppycrawl.tools.checkstyle.api.AuditEvent;
 import com.puppycrawl.tools.checkstyle.api.AuditListener;
 import com.puppycrawl.tools.checkstyle.api.CheckstyleException;
 import com.puppycrawl.tools.checkstyle.api.SeverityLevel;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.xml.sax.InputSource;
 
@@ -24,13 +25,10 @@ import java.util.stream.Stream;
  * Handles configuration loading and violation collection.
  */
 @Service
+@RequiredArgsConstructor
 public class CheckstyleService {
 
     private final CheckstyleConfigurationService configurationService;
-
-    public CheckstyleService(CheckstyleConfigurationService configurationService) {
-        this.configurationService = configurationService;
-    }
 
     /**
      * Finds all .java files in the given directory recursively.

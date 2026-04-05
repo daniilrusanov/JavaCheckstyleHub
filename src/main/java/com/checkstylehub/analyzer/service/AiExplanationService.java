@@ -6,6 +6,7 @@ import com.checkstylehub.analyzer.entity.User;
 import dev.langchain4j.model.input.Prompt;
 import dev.langchain4j.model.input.PromptTemplate;
 import dev.langchain4j.model.ollama.OllamaChatModel;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -15,6 +16,7 @@ import java.util.Map;
  * The prompt style and detail level adapt to the user's experience level.
  */
 @Service
+@RequiredArgsConstructor
 public class AiExplanationService {
 
     private static final PromptTemplate STUDENT_TEMPLATE = PromptTemplate.from("""
@@ -69,10 +71,6 @@ public class AiExplanationService {
             """);
 
     private final OllamaChatModel chatModel;
-
-    public AiExplanationService(OllamaChatModel chatModel) {
-        this.chatModel = chatModel;
-    }
 
     /**
      * Generates a Markdown explanation for the given violation tailored to the user's experience level.

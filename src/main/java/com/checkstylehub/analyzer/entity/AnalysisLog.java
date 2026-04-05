@@ -10,6 +10,9 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
@@ -21,6 +24,9 @@ import java.time.LocalDateTime;
 @Table(name = "analysis_logs", indexes = {
         @Index(name = "idx_analysis_logs_request_id", columnList = "request_id")
 })
+@Getter
+@Setter
+@NoArgsConstructor
 public class AnalysisLog {
 
     @Id
@@ -39,44 +45,4 @@ public class AnalysisLog {
 
     @Column(nullable = false)
     private LocalDateTime timestamp;
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public AnalysisRequest getRequest() {
-        return request;
-    }
-
-    public void setRequest(AnalysisRequest request) {
-        this.request = request;
-    }
-
-    public String getLevel() {
-        return level;
-    }
-
-    public void setLevel(String level) {
-        this.level = level;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public LocalDateTime getTimestamp() {
-        return timestamp;
-    }
-
-    public void setTimestamp(LocalDateTime timestamp) {
-        this.timestamp = timestamp;
-    }
 }

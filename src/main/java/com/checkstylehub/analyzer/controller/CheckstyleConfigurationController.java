@@ -4,6 +4,7 @@ import com.checkstylehub.analyzer.dto.CheckstyleConfigurationDto;
 import com.checkstylehub.analyzer.dto.CheckstyleRulesDto;
 import com.checkstylehub.analyzer.dto.UpdateCheckstyleConfigurationDto;
 import com.checkstylehub.analyzer.service.CheckstyleConfigurationService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -19,13 +20,10 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/checkstyle")
+@RequiredArgsConstructor
 public class CheckstyleConfigurationController {
 
     private final CheckstyleConfigurationService configurationService;
-
-    public CheckstyleConfigurationController(CheckstyleConfigurationService configurationService) {
-        this.configurationService = configurationService;
-    }
 
     @GetMapping("/configuration")
     public ResponseEntity<CheckstyleRulesDto> getActiveConfiguration() {

@@ -9,6 +9,7 @@ import com.checkstylehub.analyzer.exception.RepositoryAccessException;
 import com.checkstylehub.analyzer.repository.AnalysisRequestRepository;
 import com.checkstylehub.analyzer.repository.AnalysisResultRepository;
 import jakarta.persistence.EntityManager;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -28,6 +29,7 @@ import java.util.List;
  * When RabbitMQ is enabled, work is consumed from a queue; otherwise the controller runs this on a task executor.
  */
 @Service
+@RequiredArgsConstructor
 public class AnalysisService {
 
     private final GitService gitService;
@@ -36,39 +38,13 @@ public class AnalysisService {
     private final MetricsCalculationService metricsCalculationService;
     private final AnalysisRequestRepository requestRepository;
     private final AnalysisResultRepository resultRepository;
-    private final SimpMessagingTemplate messagingTemplate;
     private final com.checkstylehub.analyzer.repository.AnalysisLogRepository logRepository;
+    private final SimpMessagingTemplate messagingTemplate;
     private final EntityManager entityManager;
+    @Qualifier("analysisResultsRedisTemplate")
     private final RedisTemplate<String, CachedAnalysisBundle> redisTemplate;
     private final TransactionTemplate transactionTemplate;
     private final CheckstyleConfigurationService configurationService;
-
-    public AnalysisService(GitService gitService,
-                           CheckstyleService checkstyleService,
-                           PmdService pmdService,
-                           MetricsCalculationService metricsCalculationService,
-                           AnalysisRequestRepository requestRepository,
-                           AnalysisResultRepository resultRepository,
-                           com.checkstylehub.analyzer.repository.AnalysisLogRepository logRepository,
-                           SimpMessagingTemplate messagingTemplate,
-                           EntityManager entityManager,
-                           @Qualifier("analysisResultsRedisTemplate")
-                           RedisTemplate<String, CachedAnalysisBundle> redisTemplate,
-                           TransactionTemplate transactionTemplate,
-                           CheckstyleConfigurationService configurationService) {
-        this.gitService = gitService;
-        this.checkstyleService = checkstyleService;
-        this.pmdService = pmdService;
-        this.metricsCalculationService = metricsCalculationService;
-        this.requestRepository = requestRepository;
-        this.resultRepository = resultRepository;
-        this.logRepository = logRepository;
-        this.messagingTemplate = messagingTemplate;
-        this.entityManager = entityManager;
-        this.redisTemplate = redisTemplate;
-        this.transactionTemplate = transactionTemplate;
-        this.configurationService = configurationService;
-    }
 
     /**
      * Executes the complete analysis workflow.

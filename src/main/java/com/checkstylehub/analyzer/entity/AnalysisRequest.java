@@ -13,6 +13,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,6 +26,8 @@ import java.util.Objects;
  */
 @Entity
 @Table(name = "analysis_requests")
+@Getter
+@Setter
 public class AnalysisRequest {
 
     @Id
@@ -62,70 +66,6 @@ public class AnalysisRequest {
     public AnalysisRequest(String repoUrl) {
         this();
         this.repoUrl = repoUrl;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getRepoUrl() {
-        return repoUrl;
-    }
-
-    public void setRepoUrl(String repoUrl) {
-        this.repoUrl = repoUrl;
-    }
-
-    public RequestStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(RequestStatus status) {
-        this.status = status;
-    }
-
-    public String getErrorMessage() {
-        return errorMessage;
-    }
-
-    public void setErrorMessage(String errorMessage) {
-        this.errorMessage = errorMessage;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public Integer getQualityScore() {
-        return qualityScore;
-    }
-
-    public void setQualityScore(Integer qualityScore) {
-        this.qualityScore = qualityScore;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
-
-    public List<AnalysisResult> getResults() {
-        return results;
-    }
-
-    public void setResults(List<AnalysisResult> results) {
-        this.results = results;
     }
 
     @Override

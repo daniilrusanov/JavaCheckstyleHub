@@ -6,6 +6,7 @@ import com.checkstylehub.analyzer.dto.UpdateCheckstyleConfigurationDto;
 import com.checkstylehub.analyzer.entity.CheckstyleConfiguration;
 import com.checkstylehub.analyzer.repository.CheckstyleConfigurationRepository;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ import java.nio.charset.StandardCharsets;
  * Handles loading, updating, and converting between XML and structured rule formats.
  */
 @Service
+@RequiredArgsConstructor
 public class CheckstyleConfigurationService {
 
     private static final String DEFAULT_CONFIG_FILE = "default_checkstyle_rules.xml";
@@ -25,12 +27,6 @@ public class CheckstyleConfigurationService {
 
     private final CheckstyleConfigurationRepository configurationRepository;
     private final CheckstyleXmlConverter xmlConverter;
-
-    public CheckstyleConfigurationService(CheckstyleConfigurationRepository configurationRepository,
-                                          CheckstyleXmlConverter xmlConverter) {
-        this.configurationRepository = configurationRepository;
-        this.xmlConverter = xmlConverter;
-    }
 
     @PostConstruct
     public void ensureDefaultConfigurationExists() {

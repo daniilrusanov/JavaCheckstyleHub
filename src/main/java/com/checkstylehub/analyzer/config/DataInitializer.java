@@ -3,6 +3,7 @@ package com.checkstylehub.analyzer.config;
 import com.checkstylehub.analyzer.entity.Role;
 import com.checkstylehub.analyzer.entity.User;
 import com.checkstylehub.analyzer.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
  * Creates a default admin user if it doesn't exist.
  */
 @Component
+@RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
 
     private static final Logger logger = LoggerFactory.getLogger(DataInitializer.class);
@@ -30,11 +32,6 @@ public class DataInitializer implements CommandLineRunner {
 
     @Value("${admin.password:admin123}")
     private String adminPassword;
-
-    public DataInitializer(UserRepository userRepository, PasswordEncoder passwordEncoder) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-    }
 
     @Override
     public void run(String... args) {

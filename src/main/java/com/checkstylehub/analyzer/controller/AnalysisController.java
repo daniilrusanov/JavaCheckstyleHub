@@ -14,6 +14,7 @@ import com.checkstylehub.analyzer.repository.AnalysisRequestRepository;
 import com.checkstylehub.analyzer.repository.AnalysisResultRepository;
 import com.checkstylehub.analyzer.repository.UserRepository;
 import com.checkstylehub.analyzer.service.DirectCodeAnalysisService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -38,6 +39,7 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/api")
+@RequiredArgsConstructor
 public class AnalysisController {
 
     private final RabbitTemplate rabbitTemplate;
@@ -45,18 +47,6 @@ public class AnalysisController {
     private final AnalysisRequestRepository requestRepository;
     private final AnalysisResultRepository resultRepository;
     private final UserRepository userRepository;
-
-    public AnalysisController(RabbitTemplate rabbitTemplate,
-                              DirectCodeAnalysisService directCodeAnalysisService,
-                              AnalysisRequestRepository requestRepository,
-                              AnalysisResultRepository resultRepository,
-                              UserRepository userRepository) {
-        this.rabbitTemplate = rabbitTemplate;
-        this.directCodeAnalysisService = directCodeAnalysisService;
-        this.requestRepository = requestRepository;
-        this.resultRepository = resultRepository;
-        this.userRepository = userRepository;
-    }
 
     /**
      * Initiates a new Checkstyle analysis for the specified repository.
@@ -121,13 +111,15 @@ public class AnalysisController {
     @GetMapping("/status/{id}")
     public ResponseEntity<AnalysisRequestStatusDto> getAnalysisStatus(@PathVariable Long id) {
         return requestRepository.findById(id)
-                .map(req -> new AnalysisRequestStatusDto(
-                        req.getId(),
-                        req.getStatus() != null ? req.getStatus().name() : null,
-                        req.getErrorMessage(),
-                        req.getCreatedAt(),
-                        req.getQualityScore()
-                ))
+                .map(req -> {
+                    AnalysisRequestStatusDto dto = new AnalysisRequestStatusDto();
+                    dto.setId(req.getId());
+                    dto.setStatus(req.getStatus() != null ? req.getStatus().name() : null);
+                    dto.setErrorMessage(req.getErrorMessage());
+                    dto.setCreatedAt(req.getCreatedAt());
+                    dto.setQualityScore(req.getQualityScore());
+                    return dto;
+                })
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));
     }
@@ -147,14 +139,17 @@ public class AnalysisController {
 
         List<AnalysisResult> results = resultRepository.findByRequestId(id);
         List<AnalysisResultDto> dtoList = results.stream()
-                .map(r -> new AnalysisResultDto(
-                        r.getId(),
-                        r.getFilePath(),
-                        r.getLineNumber(),
-                        r.getSeverity(),
-                        r.getMessage(),
-                        r.getAnalyzerType()
-                ))
+                .map(r -> {
+                    AnalysisResultDto dto = new AnalysisResultDto();
+                    dto.setId(r.getId());
+                    dto.setFilePath(r.getFilePath());
+                    dto.setLineNumber(r.getLineNumber());
+                    dto.setSeverity(r.getSeverity());
+                    dto.setMessage(r.getMessage());
+                    dto.setAnalyzerType(r.getAnalyzerType());
+                    dto.setCodeSnippet(r.getCodeSnippet());
+                    return dto;
+                })
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(dtoList);

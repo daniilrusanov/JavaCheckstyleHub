@@ -8,11 +8,17 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "checkstyle_configuration")
+@Getter
+@Setter
+@NoArgsConstructor
 public class CheckstyleConfiguration {
 
     @Id
@@ -34,10 +40,6 @@ public class CheckstyleConfiguration {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
 
-    // Constructors
-    public CheckstyleConfiguration() {
-    }
-
     public CheckstyleConfiguration(String configName, String xmlContent, Boolean isActive) {
         this.configName = configName;
         this.xmlContent = xmlContent;
@@ -57,54 +59,4 @@ public class CheckstyleConfiguration {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
-
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getConfigName() {
-        return configName;
-    }
-
-    public void setConfigName(String configName) {
-        this.configName = configName;
-    }
-
-    public String getXmlContent() {
-        return xmlContent;
-    }
-
-    public void setXmlContent(String xmlContent) {
-        this.xmlContent = xmlContent;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public Boolean getIsActive() {
-        return isActive;
-    }
-
-    public void setIsActive(Boolean isActive) {
-        this.isActive = isActive;
-    }
 }
-

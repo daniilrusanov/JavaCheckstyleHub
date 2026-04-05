@@ -1,10 +1,14 @@
 package com.checkstylehub.analyzer.dto;
 
 import com.checkstylehub.analyzer.entity.UserSettings;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * DTO for user Checkstyle settings.
  */
+@Data
+@NoArgsConstructor
 public class UserSettingsDto {
 
     private String charset;
@@ -33,9 +37,6 @@ public class UserSettingsDto {
     private Boolean outerTypeFilename;
     private Boolean illegalTokenText;
     private Boolean avoidEscapedUnicodeCharacters;
-
-    public UserSettingsDto() {
-    }
 
     public UserSettingsDto(UserSettings settings) {
         this.charset = settings.getCharset();
@@ -128,81 +129,4 @@ public class UserSettingsDto {
         if (illegalTokenText != null) settings.setIllegalTokenText(illegalTokenText);
         if (avoidEscapedUnicodeCharacters != null) settings.setAvoidEscapedUnicodeCharacters(avoidEscapedUnicodeCharacters);
     }
-
-    // Getters and Setters
-
-    public String getCharset() { return charset; }
-    public void setCharset(String charset) { this.charset = charset; }
-
-    public String getSeverity() { return severity; }
-    public void setSeverity(String severity) { this.severity = severity; }
-
-    public String getFileExtensions() { return fileExtensions; }
-    public void setFileExtensions(String fileExtensions) { this.fileExtensions = fileExtensions; }
-
-    public Integer getLineLength() { return lineLength; }
-    public void setLineLength(Integer lineLength) { this.lineLength = lineLength; }
-
-    public String getLineLengthIgnorePattern() { return lineLengthIgnorePattern; }
-    public void setLineLengthIgnorePattern(String lineLengthIgnorePattern) { this.lineLengthIgnorePattern = lineLengthIgnorePattern; }
-
-    public Boolean getAvoidStarImport() { return avoidStarImport; }
-    public void setAvoidStarImport(Boolean avoidStarImport) { this.avoidStarImport = avoidStarImport; }
-
-    public Boolean getOneTopLevelClass() { return oneTopLevelClass; }
-    public void setOneTopLevelClass(Boolean oneTopLevelClass) { this.oneTopLevelClass = oneTopLevelClass; }
-
-    public Boolean getNoLineWrap() { return noLineWrap; }
-    public void setNoLineWrap(Boolean noLineWrap) { this.noLineWrap = noLineWrap; }
-
-    public Boolean getEmptyBlock() { return emptyBlock; }
-    public void setEmptyBlock(Boolean emptyBlock) { this.emptyBlock = emptyBlock; }
-
-    public Boolean getNeedBraces() { return needBraces; }
-    public void setNeedBraces(Boolean needBraces) { this.needBraces = needBraces; }
-
-    public Boolean getLeftCurly() { return leftCurly; }
-    public void setLeftCurly(Boolean leftCurly) { this.leftCurly = leftCurly; }
-
-    public Boolean getRightCurly() { return rightCurly; }
-    public void setRightCurly(Boolean rightCurly) { this.rightCurly = rightCurly; }
-
-    public Boolean getEmptyStatement() { return emptyStatement; }
-    public void setEmptyStatement(Boolean emptyStatement) { this.emptyStatement = emptyStatement; }
-
-    public Boolean getEqualsHashCode() { return equalsHashCode; }
-    public void setEqualsHashCode(Boolean equalsHashCode) { this.equalsHashCode = equalsHashCode; }
-
-    public Boolean getIllegalInstantiation() { return illegalInstantiation; }
-    public void setIllegalInstantiation(Boolean illegalInstantiation) { this.illegalInstantiation = illegalInstantiation; }
-
-    public Boolean getMissingSwitchDefault() { return missingSwitchDefault; }
-    public void setMissingSwitchDefault(Boolean missingSwitchDefault) { this.missingSwitchDefault = missingSwitchDefault; }
-
-    public Boolean getSimplifyBooleanExpression() { return simplifyBooleanExpression; }
-    public void setSimplifyBooleanExpression(Boolean simplifyBooleanExpression) { this.simplifyBooleanExpression = simplifyBooleanExpression; }
-
-    public Boolean getSimplifyBooleanReturn() { return simplifyBooleanReturn; }
-    public void setSimplifyBooleanReturn(Boolean simplifyBooleanReturn) { this.simplifyBooleanReturn = simplifyBooleanReturn; }
-
-    public Boolean getFinalClass() { return finalClass; }
-    public void setFinalClass(Boolean finalClass) { this.finalClass = finalClass; }
-
-    public Boolean getHideUtilityClassConstructor() { return hideUtilityClassConstructor; }
-    public void setHideUtilityClassConstructor(Boolean hideUtilityClassConstructor) { this.hideUtilityClassConstructor = hideUtilityClassConstructor; }
-
-    public Boolean getInterfaceIsType() { return interfaceIsType; }
-    public void setInterfaceIsType(Boolean interfaceIsType) { this.interfaceIsType = interfaceIsType; }
-
-    public Boolean getVisibilityModifier() { return visibilityModifier; }
-    public void setVisibilityModifier(Boolean visibilityModifier) { this.visibilityModifier = visibilityModifier; }
-
-    public Boolean getOuterTypeFilename() { return outerTypeFilename; }
-    public void setOuterTypeFilename(Boolean outerTypeFilename) { this.outerTypeFilename = outerTypeFilename; }
-
-    public Boolean getIllegalTokenText() { return illegalTokenText; }
-    public void setIllegalTokenText(Boolean illegalTokenText) { this.illegalTokenText = illegalTokenText; }
-
-    public Boolean getAvoidEscapedUnicodeCharacters() { return avoidEscapedUnicodeCharacters; }
-    public void setAvoidEscapedUnicodeCharacters(Boolean avoidEscapedUnicodeCharacters) { this.avoidEscapedUnicodeCharacters = avoidEscapedUnicodeCharacters; }
 }

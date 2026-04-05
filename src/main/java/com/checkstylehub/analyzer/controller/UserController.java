@@ -11,6 +11,7 @@ import com.checkstylehub.analyzer.repository.AnalysisRequestRepository;
 import com.checkstylehub.analyzer.repository.AnalysisResultRepository;
 import com.checkstylehub.analyzer.repository.UserRepository;
 import com.checkstylehub.analyzer.repository.UserSettingsRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,23 +36,13 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/api/user")
+@RequiredArgsConstructor
 public class UserController {
 
     private final AnalysisRequestRepository analysisRequestRepository;
     private final AnalysisResultRepository analysisResultRepository;
     private final UserSettingsRepository userSettingsRepository;
     private final UserRepository userRepository;
-
-    public UserController(
-            AnalysisRequestRepository analysisRequestRepository,
-            AnalysisResultRepository analysisResultRepository,
-            UserSettingsRepository userSettingsRepository,
-            UserRepository userRepository) {
-        this.analysisRequestRepository = analysisRequestRepository;
-        this.analysisResultRepository = analysisResultRepository;
-        this.userSettingsRepository = userSettingsRepository;
-        this.userRepository = userRepository;
-    }
 
     /**
      * Get current user profile.

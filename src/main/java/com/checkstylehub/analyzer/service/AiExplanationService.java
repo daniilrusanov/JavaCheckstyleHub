@@ -70,19 +70,76 @@ public class AiExplanationService {
             {{codeSnippet}}
             ```
 
-            Provide:
+            Provide:STATELESS_STUDENT_TEMPLATE
             1. **One-line summary** of the violation (Ukrainian).
             2. **Fixed snippet** — corrected code only, no prose comments.
             """);
 
-    private static final PromptTemplate SUMMARY_TEMPLATE = PromptTemplate.from("""
-            Ти — досвідчений Java-ментор. Користувач (рівень: {{experienceLevel}}) щойно проаналізував свій код. \
-            Ось його найчастіші помилки:
+    private static final PromptTemplate STATELESS_STUDENT_TEMPLATE = PromptTemplate.from("""
+            Ти досвідчений Java-розробник та ментор. Поясни наступне порушення правил статичного аналізу \
+            студенту-початківцю детально і зрозуміло ВИКЛЮЧНО УКРАЇНСЬКОЮ МОВОЮ.
 
-            {{topErrors}}
+            **Порушення:** {{message}}
 
-            Напиши короткий загальний висновок (до 3-4 абзаців) українською мовою з порадами щодо покращення \
-            стилю написання коду. Використовуй Markdown.
+            **Фрагмент коду:**
+            ```java
+            {{codeSnippet}}
+            ```
+
+            Будь ласка, надай відповідь у форматі Markdown:
+            1. **Що означає це правило** — теоретичне пояснення, чому воно важливе.
+            2. **Що конкретно не так** — поясни помилку у наведеному коді.
+            3. **Виправлений варіант** — повний виправлений приклад коду з детальними коментарями.
+            """);
+
+    private static final PromptTemplate STATELESS_JUNIOR_TEMPLATE = PromptTemplate.from("""
+            Ти Senior Java-розробник. Поясни порушення статичного аналізу УКРАЇНСЬКОЮ МОВОЮ для джун-розробника.
+
+            **Порушення:** {{message}}
+
+            **Фрагмент коду:**
+            ```java
+            {{codeSnippet}}
+            ```
+
+            Надай відповідь у форматі Markdown:
+            1. **Суть порушення** — коротке пояснення правила.
+            2. **Виправлений код** — виправлений фрагмент (тільки суть, без зайвих коментарів).
+            """);
+
+    private static final PromptTemplate STATELESS_ADVANCED_TEMPLATE = PromptTemplate.from("""
+            Code review finding — respond in UKRAINIAN, keep it strictly brief and technical.
+
+            **Violation:** {{message}}
+
+            ```java
+            {{codeSnippet}}
+            ```
+
+            Provide:
+            1. **One-line summary** of the violation (in Ukrainian).
+            2. **Fixed snippet** — corrected code only, no prose comments.
+            """);
+
+    private static final PromptTemplate SUMMARY_STUDENT_TEMPLATE = PromptTemplate.from("""
+            Ти — терплячий Java-ментор для студента. Проаналізуй ці 10 найчастіших помилок: {{topErrors}}. \
+            Дай детальні поради, як їх уникати, з прикладами правильного коду. Пояснюй простою мовою.
+
+            Рівень користувача в системі: {{experienceLevel}}.
+            """);
+
+    private static final PromptTemplate SUMMARY_JUNIOR_TEMPLATE = PromptTemplate.from("""
+            Ти — Senior Java Developer. Проаналізуй ці 10 помилок джуніора: {{topErrors}}. \
+            Напиши загальний фідбек з фокусом на best practices.
+
+            Рівень користувача в системі: {{experienceLevel}}.
+            """);
+
+    private static final PromptTemplate SUMMARY_ADVANCED_TEMPLATE = PromptTemplate.from("""
+            Ти — Principal Engineer. Ось 10 найчастіших порушень стайл-гайду: {{topErrors}}. \
+            Надай коротке, сухе технічне summary (bullet points) без зайвої 'води'.
+
+            Рівень користувача в системі: {{experienceLevel}}.
             """);
 
     private final OllamaChatModel chatModel;
@@ -130,7 +187,7 @@ public class AiExplanationService {
      */
     public String generateGeneralSummary(Long requestId, User user) {
         List<Object[]> rows = analysisResultRepository
-                .findTopErrorsByRequestId(requestId, PageRequest.of(0, 5));
+                .findTopErrorsByRequestId(requestId, PageRequest.of(0, 10));
 
         if (rows.isEmpty()) {
             return "Порушень не знайдено — код відповідає всім перевіреним правилам.";
@@ -149,9 +206,49 @@ public class AiExplanationService {
                 ? user.getExperienceLevel()
                 : ExperienceLevel.STUDENT;
 
-        Prompt prompt = SUMMARY_TEMPLATE.apply(Map.of(
-                "experienceLevel", level.name(),
+        String experienceLevel = level.name();
+        PromptTemplate summaryTemplate = switch (level) {
+            case STUDENT -> SUMMARY_STUDENT_TEMPLATE;
+            case JUNIOR -> SUMMARY_JUNIOR_TEMPLATE;
+            case ADVANCED -> SUMMARY_ADVANCED_TEMPLATE;
+        };
+
+        Prompt prompt = summaryTemplate.apply(Map.of(
+                "experienceLevel", experienceLevel,
                 "topErrors", topErrors
+        ));
+
+        return chatModel.generate(prompt.text());
+    }
+
+    /**
+     * Stateless explanation for a code window and violation message (no persisted {@link AnalysisResult}).
+     * Prompt style matches {@link #explain(AnalysisResult, User)} for the user's experience level.
+     *
+     * @param codeSnippet extracted source lines around the violation
+     * @param message     violation text from the analyzer
+     * @param user        requesting user (experience level selects the prompt)
+     * @return Markdown-formatted AI response
+     */
+    public String generateStatelessExplanation(String codeSnippet, String message, User user) {
+        ExperienceLevel level = user.getExperienceLevel() != null
+                ? user.getExperienceLevel()
+                : ExperienceLevel.STUDENT;
+
+        PromptTemplate template = switch (level) {
+            case STUDENT -> STATELESS_STUDENT_TEMPLATE;
+            case JUNIOR -> STATELESS_JUNIOR_TEMPLATE;
+            case ADVANCED -> STATELESS_ADVANCED_TEMPLATE;
+        };
+
+        String snippet = codeSnippet != null && !codeSnippet.isBlank()
+                ? codeSnippet
+                : "(фрагмент коду недоступний)";
+
+        Prompt prompt = template.apply(Map.of(
+                "experienceLevel", level.name(),
+                "message", message != null ? message : "",
+                "codeSnippet", snippet
         ));
 
         return chatModel.generate(prompt.text());

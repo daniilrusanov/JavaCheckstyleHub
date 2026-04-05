@@ -1,5 +1,6 @@
 package com.checkstylehub.analyzer.controller;
 
+import com.checkstylehub.analyzer.dto.StatelessAiRequestDto;
 import com.checkstylehub.analyzer.entity.AiExplanation;
 import com.checkstylehub.analyzer.entity.AnalysisResult;
 import com.checkstylehub.analyzer.entity.User;
@@ -14,6 +15,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
@@ -115,6 +117,65 @@ public class AiController {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                     "Помилка генерації зведення: " + e.getMessage());
         }
+    }
+
+    /**
+     * Stateless AI explanation for direct code analysis: extracts ~10 lines around
+     * {@link StatelessAiRequestDto #lineNumber}
+     * and generates Markdown without persisting an {@link AiExplanation}.
+     */
+    @PostMapping("/explain/stateless")
+    public ResponseEntity<String> explainStateless(
+            @RequestBody StatelessAiRequestDto body,
+            @AuthenticationPrincipal User user) {
+
+        String snippet = extractSnippetAroundLine(body.getCode(), body.getLineNumber());
+        try {
+            String markdown = aiExplanationService.generateStatelessExplanation(
+                    snippet,
+                    body.getMessage(),
+                    user);
+            return ResponseEntity.ok(markdown);
+        } catch (Exception e) {
+            if (isConnectionRefused(e)) {
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "Сервіс Ollama недоступний. " +
+                        "Переконайтесь, що Ollama запущено (`ollama serve`) " +
+                        "і потрібну модель завантажено (`ollama pull llama3`).");
+            }
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Помилка генерації AI пояснення: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Returns up to 10 lines centered on {@code lineNumber} (1-based), clamped to the source.
+     */
+    static String extractSnippetAroundLine(String code, int lineNumber) {
+        if (code == null || code.isBlank()) {
+            return "(фрагмент коду недоступний)";
+        }
+        String[] lines = code.split("\\R", -1);
+        if (lines.length == 0) {
+            return "(фрагмент коду недоступний)";
+        }
+        int idx = lineNumber - 1;
+        if (idx < 0) {
+            idx = 0;
+        }
+        if (idx >= lines.length) {
+            idx = lines.length - 1;
+        }
+        int start = Math.max(0, idx - 4);
+        int end = Math.min(lines.length - 1, idx + 5);
+        StringBuilder sb = new StringBuilder();
+        for (int i = start; i <= end; i++) {
+            if (i > start) {
+                sb.append('\n');
+            }
+            sb.append(lines[i]);
+        }
+        return sb.toString();
     }
 
     /** Traverses the cause chain looking for a {@link ConnectException}. */

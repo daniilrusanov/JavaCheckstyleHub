@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -170,6 +171,7 @@ public class AnalysisService {
                     result.setLineNumber(event.getLine());
                     result.setSeverity(event.getSeverityLevel().getName());
                     result.setMessage(event.getMessage());
+                    result.setCodeSnippet(extractCodeSnippet(event.getFileName(), event.getLine()));
                     resultRepository.save(result);
                     cachedResults.add(result);
                 }
@@ -181,6 +183,7 @@ public class AnalysisService {
                     result.setLineNumber(v.line());
                     result.setSeverity(v.severity());
                     result.setMessage(v.message());
+                    result.setCodeSnippet(extractCodeSnippet(v.absoluteFilePath(), v.line()));
                     resultRepository.save(result);
                     cachedResults.add(result);
                 }
@@ -245,6 +248,7 @@ public class AnalysisService {
                 result.setSeverity(row.getSeverity());
                 result.setMessage(row.getMessage());
                 result.setAnalyzerType(row.getAnalyzerType());
+                result.setCodeSnippet(row.getCodeSnippet());
                 resultRepository.save(result);
             }
             entityManager.flush();
@@ -307,6 +311,30 @@ public class AnalysisService {
                 logRepository.save(log);
             });
         } catch (Exception ignore) {
+        }
+    }
+
+    /**
+     * Reads ~10 lines surrounding the violation line from the given file.
+     * Returns an empty string if the file cannot be read.
+     *
+     * @param absoluteFilePath absolute path to the Java source file
+     * @param lineNumber       1-based line number of the violation
+     * @return formatted code snippet with line numbers
+     */
+    private String extractCodeSnippet(String absoluteFilePath, int lineNumber) {
+        try {
+            List<String> lines = Files.readAllLines(Path.of(absoluteFilePath));
+            int start = Math.max(0, lineNumber - 6);
+            int end = Math.min(lines.size(), lineNumber + 5);
+            StringBuilder sb = new StringBuilder();
+            for (int i = start; i < end; i++) {
+                String marker = (i + 1 == lineNumber) ? ">>>" : "   ";
+                sb.append(String.format("%s %4d | %s%n", marker, i + 1, lines.get(i)));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "";
         }
     }
 

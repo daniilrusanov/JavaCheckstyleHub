@@ -52,6 +52,10 @@ public class AnalysisResult {
     @ColumnDefault("'CHECKSTYLE'")
     private AnalyzerType analyzerType = AnalyzerType.CHECKSTYLE;
 
+    /** ~10 lines of source code surrounding the violation, captured at analysis time. */
+    @Column(columnDefinition = "TEXT")
+    private String codeSnippet;
+
     public Long getId() {
         return id;
     }
@@ -106,6 +110,14 @@ public class AnalysisResult {
 
     public void setAnalyzerType(AnalyzerType analyzerType) {
         this.analyzerType = analyzerType != null ? analyzerType : AnalyzerType.CHECKSTYLE;
+    }
+
+    public String getCodeSnippet() {
+        return codeSnippet;
+    }
+
+    public void setCodeSnippet(String codeSnippet) {
+        this.codeSnippet = codeSnippet;
     }
 
     @Override

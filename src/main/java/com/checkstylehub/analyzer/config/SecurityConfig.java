@@ -64,6 +64,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/results/**").permitAll()
                         // Checkstyle configuration
                         .requestMatchers("/api/checkstyle/**").permitAll()
+                        // AI explanation endpoint — requires authentication
+                        .requestMatchers("/api/ai/**").authenticated()
                         // User-specific endpoints
                         .requestMatchers("/api/user/**").authenticated()
                         // All other requests require authentication

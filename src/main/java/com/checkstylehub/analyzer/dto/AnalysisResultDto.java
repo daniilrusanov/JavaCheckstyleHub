@@ -12,6 +12,7 @@ public class AnalysisResultDto {
     private String severity;
     private String message;
     private AnalyzerType analyzerType;
+    private String codeSnippet;
 
     public AnalysisResultDto() {
     }
@@ -76,5 +77,13 @@ public class AnalysisResultDto {
 
     public void setAnalyzerType(AnalyzerType analyzerType) {
         this.analyzerType = analyzerType;
+    }
+
+    public String getCodeSnippet() {
+        return codeSnippet;
+    }
+
+    public void setCodeSnippet(String codeSnippet) {
+        this.codeSnippet = codeSnippet;
     }
 }

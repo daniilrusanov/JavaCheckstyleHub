@@ -10,7 +10,6 @@ import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +21,7 @@ import java.util.List;
 /**
  * Service responsible for orchestrating the complete code analysis workflow.
  * Handles repository cloning, Checkstyle execution, result persistence, and logging.
- * Operations are executed asynchronously to prevent blocking the main thread.
+ * Analysis runs on a RabbitMQ consumer thread after the HTTP request enqueues work.
  */
 @Service
 public class AnalysisService {
@@ -56,14 +55,13 @@ public class AnalysisService {
     }
 
     /**
-     * Executes the complete analysis workflow asynchronously.
+     * Executes the complete analysis workflow.
      * Steps: clone repository → find Java files → run Checkstyle → save results.
      * Status updates and logs are sent via WebSocket in real-time.
      *
      * @param requestId              the ID of the analysis request
      * @param customCheckstyleConfig optional custom Checkstyle XML configuration
      */
-    @Async("taskExecutor")
     @Transactional
     public void startAnalysisFlow(Long requestId, String customCheckstyleConfig) {
         String logTopic = "/topic/logs/" + requestId;

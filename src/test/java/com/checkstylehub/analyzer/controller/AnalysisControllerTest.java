@@ -1,5 +1,7 @@
 package com.checkstylehub.analyzer.controller;
 
+import com.checkstylehub.analyzer.config.RabbitMQConfig;
+import com.checkstylehub.analyzer.dto.AnalysisQueueMessage;
 import com.checkstylehub.analyzer.dto.AnalysisRequestDto;
 import com.checkstylehub.analyzer.dto.AnalysisRequestStatusDto;
 import com.checkstylehub.analyzer.dto.AnalysisResultDto;
@@ -8,14 +10,21 @@ import com.checkstylehub.analyzer.entity.AnalysisResult;
 import com.checkstylehub.analyzer.entity.User;
 import com.checkstylehub.analyzer.repository.AnalysisRequestRepository;
 import com.checkstylehub.analyzer.repository.AnalysisResultRepository;
+import com.checkstylehub.analyzer.repository.UserRepository;
 import com.checkstylehub.analyzer.service.AnalysisService;
 import com.checkstylehub.analyzer.service.DirectCodeAnalysisService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.core.task.TaskExecutor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.mockito.Spy;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -24,9 +33,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.eq;
 
 /**
  * Unit tests for AnalysisController.
@@ -35,7 +45,16 @@ import static org.mockito.Mockito.eq;
 class AnalysisControllerTest {
 
     @Mock
+    private ObjectProvider<RabbitTemplate> rabbitTemplateProvider;
+
+    @Mock
+    private RabbitTemplate rabbitTemplate;
+
+    @Mock
     private AnalysisService analysisService;
+
+    @Mock
+    private TaskExecutor taskExecutor;
 
     @Mock
     private DirectCodeAnalysisService directCodeAnalysisService;
@@ -46,18 +65,25 @@ class AnalysisControllerTest {
     @Mock
     private AnalysisResultRepository resultRepository;
 
+    @Mock
+    private UserRepository userRepository;
+
+    @Spy
+    private ObjectMapper objectMapper = new ObjectMapper();
+
     @InjectMocks
     private AnalysisController analysisController;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        when(rabbitTemplateProvider.getIfAvailable()).thenReturn(rabbitTemplate);
         System.out.println("Початок тесту AnalysisController");
     }
 
     @Test
     @DisplayName("Should start analysis and return request ID")
-    void testStartAnalysis_Success() {
+    void testStartAnalysis_Success() throws JsonProcessingException {
         System.out.println("Тест: запуск аналізу");
 
         AnalysisRequestDto requestDto = new AnalysisRequestDto();
@@ -67,14 +93,19 @@ class AnalysisControllerTest {
         savedRequest.setId(1L);
 
         when(requestRepository.save(any(AnalysisRequest.class))).thenReturn(savedRequest);
-        doNothing().when(analysisService).startAnalysisFlow(anyLong(), anyString());
 
         ResponseEntity<Long> response = analysisController.startAnalysis(requestDto, null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(1L, response.getBody());
         verify(requestRepository, times(1)).save(any(AnalysisRequest.class));
-        verify(analysisService, times(1)).startAnalysisFlow(1L, null);
+        String expectedJson = objectMapper.writeValueAsString(new AnalysisQueueMessage(1L, null));
+        verify(rabbitTemplate).convertAndSend(
+                eq(RabbitMQConfig.ANALYSIS_EXCHANGE),
+                eq(RabbitMQConfig.ANALYSIS_ROUTING_KEY),
+                eq(expectedJson));
+        verify(taskExecutor, never()).execute(any(Runnable.class));
+        verify(analysisService, never()).startAnalysisFlow(anyLong(), any());
 
         System.out.println("Аналіз успішно запущено з ID: " + response.getBody());
     }
@@ -91,7 +122,8 @@ class AnalysisControllerTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verify(requestRepository, never()).save(any());
-        verify(analysisService, never()).startAnalysisFlow(anyLong(), anyString());
+        verify(rabbitTemplate, never()).convertAndSend(anyString(), anyString(), any(Object.class));
+        verify(taskExecutor, never()).execute(any(Runnable.class));
 
         System.out.println("Коректно повернуто BAD_REQUEST для порожнього URL");
     }
@@ -107,6 +139,8 @@ class AnalysisControllerTest {
         ResponseEntity<Long> response = analysisController.startAnalysis(requestDto, null);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(rabbitTemplate, never()).convertAndSend(anyString(), anyString(), any(Object.class));
+        verify(taskExecutor, never()).execute(any(Runnable.class));
 
         System.out.println("Коректно повернуто BAD_REQUEST для null URL");
     }
@@ -214,7 +248,7 @@ class AnalysisControllerTest {
 
     @Test
     @DisplayName("Should start analysis with custom Checkstyle configuration")
-    void testStartAnalysis_WithCustomConfig() {
+    void testStartAnalysis_WithCustomConfig() throws JsonProcessingException {
         System.out.println("Тест: запуск аналізу з кастомною конфігурацією");
 
         AnalysisRequestDto requestDto = new AnalysisRequestDto();
@@ -225,13 +259,18 @@ class AnalysisControllerTest {
         savedRequest.setId(2L);
 
         when(requestRepository.save(any(AnalysisRequest.class))).thenReturn(savedRequest);
-        doNothing().when(analysisService).startAnalysisFlow(anyLong(), anyString());
 
         ResponseEntity<Long> response = analysisController.startAnalysis(requestDto, null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(2L, response.getBody());
-        verify(analysisService, times(1)).startAnalysisFlow(eq(2L), eq("<module name=\"Checker\"></module>"));
+        String expectedJson = objectMapper.writeValueAsString(
+                new AnalysisQueueMessage(2L, "<module name=\"Checker\"></module>"));
+        verify(rabbitTemplate).convertAndSend(
+                eq(RabbitMQConfig.ANALYSIS_EXCHANGE),
+                eq(RabbitMQConfig.ANALYSIS_ROUTING_KEY),
+                eq(expectedJson));
+        verify(taskExecutor, never()).execute(any(Runnable.class));
 
         System.out.println("Аналіз з кастомною конфігурацією успішно запущено");
     }

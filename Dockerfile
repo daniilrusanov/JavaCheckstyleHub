@@ -24,5 +24,8 @@ COPY --from=build /app/target/*.jar app.jar
 # Expose port (the one specified in application.properties)
 EXPOSE 8000
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# JVM: respect cgroup memory limits, avoid OOM kills in small Docker environments
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+
+# Run the application (exec + sh so JAVA_OPTS applies; proper signal handling)
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

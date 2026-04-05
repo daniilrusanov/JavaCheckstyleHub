@@ -63,7 +63,9 @@ class UserControllerTest {
         testUser.setId(1L);
         testUser.setRole(Role.USER);
         testUser.setExperienceLevel(ExperienceLevel.JUNIOR);
-        
+
+        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
+
         System.out.println("Початок тесту UserController");
     }
 

@@ -11,6 +11,8 @@ import com.checkstylehub.analyzer.repository.AnalysisRequestRepository;
 import com.checkstylehub.analyzer.repository.AnalysisResultRepository;
 import com.checkstylehub.analyzer.repository.UserRepository;
 import com.checkstylehub.analyzer.repository.UserSettingsRepository;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.List;
@@ -107,16 +110,24 @@ public class UserController {
      * Get user's Checkstyle settings.
      */
     @GetMapping("/settings")
+    @Transactional
     public ResponseEntity<UserSettingsDto> getSettings(@AuthenticationPrincipal User user) {
         if (user == null) {
             return ResponseEntity.status(401).build();
         }
 
-        UserSettings settings = userSettingsRepository.findByUserId(user.getId())
+        User managed = userRepository.findById(user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Session invalid"));
+
+        UserSettings settings = userSettingsRepository.findByUserId(managed.getId())
                 .orElseGet(() -> {
-                    // Create default settings if none exist
-                    UserSettings newSettings = new UserSettings(user);
-                    return userSettingsRepository.save(newSettings);
+                    try {
+                        return userSettingsRepository.save(new UserSettings(managed));
+                    } catch (DataIntegrityViolationException e) {
+                        return userSettingsRepository.findByUserId(managed.getId())
+                                .orElseThrow(() -> new IllegalStateException(
+                                        "Could not create or load user settings", e));
+                    }
                 });
 
         return ResponseEntity.ok(new UserSettingsDto(settings));
@@ -134,8 +145,19 @@ public class UserController {
             return ResponseEntity.status(401).build();
         }
 
-        UserSettings settings = userSettingsRepository.findByUserId(user.getId())
-                .orElseGet(() -> new UserSettings(user));
+        User managed = userRepository.findById(user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Session invalid"));
+
+        UserSettings settings = userSettingsRepository.findByUserId(managed.getId())
+                .orElseGet(() -> {
+                    try {
+                        return userSettingsRepository.save(new UserSettings(managed));
+                    } catch (DataIntegrityViolationException e) {
+                        return userSettingsRepository.findByUserId(managed.getId())
+                                .orElseThrow(() -> new IllegalStateException(
+                                        "Could not create or load user settings", e));
+                    }
+                });
 
         settingsDto.applyTo(settings);
         settings = userSettingsRepository.save(settings);

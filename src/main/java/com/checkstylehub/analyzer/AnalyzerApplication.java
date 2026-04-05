@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
  * Main Spring Boot application class for Checkstyle Analyzer.
- * Repository analysis tasks are processed asynchronously via RabbitMQ.
+ * Repository analysis runs asynchronously (RabbitMQ when enabled, otherwise a background task executor).
  */
 @SpringBootApplication
 public class AnalyzerApplication {

@@ -4,12 +4,14 @@ import com.checkstylehub.analyzer.entity.AiExplanation;
 import com.checkstylehub.analyzer.entity.AnalysisResult;
 import com.checkstylehub.analyzer.entity.User;
 import com.checkstylehub.analyzer.repository.AiExplanationRepository;
+import com.checkstylehub.analyzer.repository.AnalysisRequestRepository;
 import com.checkstylehub.analyzer.repository.AnalysisResultRepository;
 import com.checkstylehub.analyzer.service.AiExplanationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,6 +32,7 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 public class AiController {
 
     private final AnalysisResultRepository resultRepository;
+    private final AnalysisRequestRepository requestRepository;
     private final AiExplanationRepository explanationRepository;
     private final AiExplanationService aiExplanationService;
 
@@ -78,6 +81,40 @@ public class AiController {
 
                     return ResponseEntity.ok(markdown);
                 });
+    }
+
+    /**
+     * FRS06 — Returns a general AI-generated summary of the most frequent violations
+     * found in the given analysis request, tailored to the authenticated user's
+     * experience level.
+     *
+     * @param requestId the ID of the completed analysis request
+     * @param user      the authenticated user
+     * @return Markdown-formatted summary with improvement advice
+     */
+    @GetMapping("/summary/{requestId}")
+    public ResponseEntity<String> summary(
+            @PathVariable Long requestId,
+            @AuthenticationPrincipal User user) {
+
+        if (!requestRepository.existsById(requestId)) {
+            throw new ResponseStatusException(NOT_FOUND,
+                    "Запит на аналіз з id=" + requestId + " не знайдено");
+        }
+
+        try {
+            String markdown = aiExplanationService.generateGeneralSummary(requestId, user);
+            return ResponseEntity.ok(markdown);
+        } catch (Exception e) {
+            if (isConnectionRefused(e)) {
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "Сервіс Ollama недоступний. " +
+                        "Переконайтесь, що Ollama запущено (`ollama serve`) " +
+                        "і потрібну модель завантажено (`ollama pull llama3`).");
+            }
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Помилка генерації зведення: " + e.getMessage());
+        }
     }
 
     /** Traverses the cause chain looking for a {@link ConnectException}. */

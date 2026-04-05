@@ -63,7 +63,7 @@ public class MetricsCalculationService {
     }
 
     public int computeQualityScoreFromDefectDensity(double defectDensity) {
-        double qs = 100.0 * Math.exp(-0.05 * defectDensity);
+        double qs = 100.0 * Math.exp(-0.005 * defectDensity);
         int rounded = (int) Math.round(qs);
         return Math.max(0, Math.min(100, rounded));
     }

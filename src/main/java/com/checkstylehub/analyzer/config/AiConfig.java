@@ -26,7 +26,7 @@ public class AiConfig {
                 .baseUrl(baseUrl)
                 .modelName(model)
                 .temperature(0.2)
-                .timeout(Duration.ofMinutes(3))
+                .timeout(Duration.ofMinutes(6))   // match nginx proxy_read_timeout 360s
                 .build();
     }
 }

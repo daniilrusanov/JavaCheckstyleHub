@@ -1,8 +1,9 @@
 package com.checkstylehub.analyzer.dto;
 
+import com.checkstylehub.analyzer.entity.AnalyzerType;
+
 /**
- * Data Transfer Object for a single Checkstyle violation.
- * Contains a file path, line number, severity level, and violation message.
+ * Data Transfer Object for a single static-analysis finding (Checkstyle or PMD).
  */
 public class AnalysisResultDto {
     private Long id;
@@ -10,16 +11,23 @@ public class AnalysisResultDto {
     private int lineNumber;
     private String severity;
     private String message;
+    private AnalyzerType analyzerType;
 
     public AnalysisResultDto() {
     }
 
     public AnalysisResultDto(Long id, String filePath, int lineNumber, String severity, String message) {
+        this(id, filePath, lineNumber, severity, message, AnalyzerType.CHECKSTYLE);
+    }
+
+    public AnalysisResultDto(Long id, String filePath, int lineNumber, String severity, String message,
+            AnalyzerType analyzerType) {
         this.id = id;
         this.filePath = filePath;
         this.lineNumber = lineNumber;
         this.severity = severity;
         this.message = message;
+        this.analyzerType = analyzerType;
     }
 
     public Long getId() {
@@ -60,5 +68,13 @@ public class AnalysisResultDto {
 
     public void setMessage(String message) {
         this.message = message;
+    }
+
+    public AnalyzerType getAnalyzerType() {
+        return analyzerType != null ? analyzerType : AnalyzerType.CHECKSTYLE;
+    }
+
+    public void setAnalyzerType(AnalyzerType analyzerType) {
+        this.analyzerType = analyzerType;
     }
 }

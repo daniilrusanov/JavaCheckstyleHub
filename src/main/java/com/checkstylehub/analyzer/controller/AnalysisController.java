@@ -115,7 +115,8 @@ public class AnalysisController {
                         r.getFilePath(),
                         r.getLineNumber(),
                         r.getSeverity(),
-                        r.getMessage()
+                        r.getMessage(),
+                        r.getAnalyzerType()
                 ))
                 .collect(Collectors.toList());
 

@@ -3,6 +3,7 @@ package com.checkstylehub.analyzer.service;
 import com.checkstylehub.analyzer.dto.AnalysisResultDto;
 import com.checkstylehub.analyzer.dto.CodeAnalysisResponseDto;
 import com.checkstylehub.analyzer.dto.CodeAnalysisResponseDto.CompilationError;
+import com.checkstylehub.analyzer.entity.AnalyzerType;
 import com.puppycrawl.tools.checkstyle.api.AuditEvent;
 import org.springframework.stereotype.Service;
 
@@ -32,14 +33,16 @@ import java.util.regex.Pattern;
 public class DirectCodeAnalysisService {
 
     private final CheckstyleService checkstyleService;
+    private final PmdService pmdService;
 
     // Pattern to extract class name from Java code
     private static final Pattern CLASS_NAME_PATTERN = Pattern.compile(
         "(?:public\\s+)?(?:abstract\\s+)?(?:final\\s+)?class\\s+(\\w+)"
     );
 
-    public DirectCodeAnalysisService(CheckstyleService checkstyleService) {
+    public DirectCodeAnalysisService(CheckstyleService checkstyleService, PmdService pmdService) {
         this.checkstyleService = checkstyleService;
+        this.pmdService = pmdService;
     }
 
     /**
@@ -83,6 +86,7 @@ public class DirectCodeAnalysisService {
             // Run Checkstyle analysis
             List<Path> javaFiles = Collections.singletonList(javaFile);
             List<AnalysisResultDto> violationDtos = new ArrayList<>();
+            boolean checkstyleCompleted = false;
 
             try {
                 List<AuditEvent> violations = checkstyleService.runCheckstyle(
@@ -96,9 +100,11 @@ public class DirectCodeAnalysisService {
                         actualFileName,
                         event.getLine(),
                         event.getSeverityLevel().getName(),
-                        event.getMessage()
+                        event.getMessage(),
+                        AnalyzerType.CHECKSTYLE
                     ));
                 }
+                checkstyleCompleted = true;
             } catch (Exception checkstyleError) {
                 // Checkstyle failed - likely due to severe syntax errors
                 // Still return a valid response with compilation errors info
@@ -115,8 +121,23 @@ public class DirectCodeAnalysisService {
                     actualFileName,
                     1,
                     "ERROR",
-                    "Код містить критичні синтаксичні помилки і не може бути проаналізований"
+                    "Код містить критичні синтаксичні помилки і не може бути проаналізований",
+                    AnalyzerType.CHECKSTYLE
                 ));
+            }
+
+            if (checkstyleCompleted) {
+                List<PmdService.PmdViolation> pmdViolations = pmdService.runPmd(tempDir, javaFiles);
+                for (PmdService.PmdViolation v : pmdViolations) {
+                    violationDtos.add(new AnalysisResultDto(
+                            null,
+                            actualFileName,
+                            v.line(),
+                            v.severity(),
+                            v.message(),
+                            AnalyzerType.PMD
+                    ));
+                }
             }
 
             response.setViolations(violationDtos);

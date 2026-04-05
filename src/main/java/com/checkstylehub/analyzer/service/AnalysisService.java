@@ -3,6 +3,7 @@ package com.checkstylehub.analyzer.service;
 import com.checkstylehub.analyzer.dto.LogMessageDto;
 import com.checkstylehub.analyzer.entity.AnalysisRequest;
 import com.checkstylehub.analyzer.entity.AnalysisResult;
+import com.checkstylehub.analyzer.entity.AnalyzerType;
 import com.checkstylehub.analyzer.exception.RepositoryAccessException;
 import com.checkstylehub.analyzer.repository.AnalysisRequestRepository;
 import com.checkstylehub.analyzer.repository.AnalysisResultRepository;
@@ -20,7 +21,7 @@ import java.util.List;
 
 /**
  * Service responsible for orchestrating the complete code analysis workflow.
- * Handles repository cloning, Checkstyle execution, result persistence, and logging.
+ * Handles repository cloning, Checkstyle and PMD execution, result persistence, and logging.
  * Analysis runs on a RabbitMQ consumer thread after the HTTP request enqueues work.
  */
 @Service
@@ -28,6 +29,7 @@ public class AnalysisService {
 
     private final GitService gitService;
     private final CheckstyleService checkstyleService;
+    private final PmdService pmdService;
     private final AnalysisRequestRepository requestRepository;
     private final AnalysisResultRepository resultRepository;
     private final SimpMessagingTemplate messagingTemplate;
@@ -37,6 +39,7 @@ public class AnalysisService {
 
     public AnalysisService(GitService gitService,
                            CheckstyleService checkstyleService,
+                           PmdService pmdService,
                            AnalysisRequestRepository requestRepository,
                            AnalysisResultRepository resultRepository,
                            com.checkstylehub.analyzer.repository.AnalysisLogRepository logRepository,
@@ -46,6 +49,7 @@ public class AnalysisService {
                            RedisTemplate<String, List<AnalysisResult>> redisTemplate) {
         this.gitService = gitService;
         this.checkstyleService = checkstyleService;
+        this.pmdService = pmdService;
         this.requestRepository = requestRepository;
         this.resultRepository = resultRepository;
         this.logRepository = logRepository;
@@ -56,7 +60,7 @@ public class AnalysisService {
 
     /**
      * Executes the complete analysis workflow.
-     * Steps: clone repository → find Java files → run Checkstyle → save results.
+     * Steps: clone repository → find Java files → run Checkstyle → run PMD → save results.
      * Status updates and logs are sent via WebSocket in real-time.
      *
      * @param requestId              the ID of the analysis request
@@ -96,21 +100,41 @@ public class AnalysisService {
 
             updateStatusAndLog(request, AnalysisRequest.RequestStatus.ANALYZING, "Запуск аналізу Checkstyle...", logTopic);
 
-            List<com.puppycrawl.tools.checkstyle.api.AuditEvent> violations =
+            List<com.puppycrawl.tools.checkstyle.api.AuditEvent> checkstyleViolations =
                     checkstyleService.runCheckstyle(tempDir, javaFiles, customCheckstyleConfig);
 
-            logInfo("Збереження " + violations.size() + " результатів...", logTopic);
+            logInfo("Checkstyle завершено. Знайдено " + checkstyleViolations.size() + " порушень.", logTopic);
+            logInfo("Запуск PMD (ruleset " + PmdService.DEFAULT_RULESET + ")...", logTopic);
+
+            List<PmdService.PmdViolation> pmdViolations = pmdService.runPmd(tempDir, javaFiles);
+
+            logInfo("PMD завершено. Знайдено " + pmdViolations.size() + " порушень.", logTopic);
+
+            int totalViolations = checkstyleViolations.size() + pmdViolations.size();
+            logInfo("Збереження " + totalViolations + " результатів...", logTopic);
             request = entityManager.merge(request);
 
             resultsForCache = new ArrayList<>();
-            for (com.puppycrawl.tools.checkstyle.api.AuditEvent event : violations) {
+            for (com.puppycrawl.tools.checkstyle.api.AuditEvent event : checkstyleViolations) {
                 AnalysisResult result = new AnalysisResult();
                 result.setRequest(request);
+                result.setAnalyzerType(AnalyzerType.CHECKSTYLE);
                 String relativePath = safeRelativizeToString(tempDir, Path.of(event.getFileName()));
                 result.setFilePath(relativePath);
                 result.setLineNumber(event.getLine());
                 result.setSeverity(event.getSeverityLevel().getName());
                 result.setMessage(event.getMessage());
+                resultRepository.save(result);
+                resultsForCache.add(result);
+            }
+            for (PmdService.PmdViolation v : pmdViolations) {
+                AnalysisResult result = new AnalysisResult();
+                result.setRequest(request);
+                result.setAnalyzerType(AnalyzerType.PMD);
+                result.setFilePath(safeRelativizeToString(tempDir, Path.of(v.absoluteFilePath())));
+                result.setLineNumber(v.line());
+                result.setSeverity(v.severity());
+                result.setMessage(v.message());
                 resultRepository.save(result);
                 resultsForCache.add(result);
             }
@@ -123,7 +147,8 @@ public class AnalysisService {
             }
 
             updateStatusAndLog(request, AnalysisRequest.RequestStatus.COMPLETED,
-                    "Аналіз завершено. Знайдено " + violations.size() + " порушень.", logTopic);
+                    "Аналіз завершено. Знайдено " + totalViolations + " порушень (Checkstyle: "
+                            + checkstyleViolations.size() + ", PMD: " + pmdViolations.size() + ").", logTopic);
 
         } catch (RepositoryAccessException | IllegalStateException | InterruptedException e) {
             handleFailure(requestId, e.getMessage(), logTopic);
@@ -153,6 +178,7 @@ public class AnalysisService {
             result.setLineNumber(row.getLineNumber());
             result.setSeverity(row.getSeverity());
             result.setMessage(row.getMessage());
+            result.setAnalyzerType(row.getAnalyzerType());
             resultRepository.save(result);
         }
         entityManager.flush();

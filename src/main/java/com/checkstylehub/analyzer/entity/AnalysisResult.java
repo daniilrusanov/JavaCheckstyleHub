@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -12,10 +14,12 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import org.hibernate.annotations.ColumnDefault;
+
 import java.util.Objects;
 
 /**
- * Entity representing a single Checkstyle violation found during analysis.
+ * Entity representing a single static-analysis finding (Checkstyle or PMD).
  * Each result is associated with a specific file, line number, and severity level.
  */
 @Entity
@@ -42,6 +46,11 @@ public class AnalysisResult {
 
     @Column(columnDefinition = "TEXT", nullable = false)
     private String message;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "analyzer_type", nullable = false, length = 32)
+    @ColumnDefault("'CHECKSTYLE'")
+    private AnalyzerType analyzerType = AnalyzerType.CHECKSTYLE;
 
     public Long getId() {
         return id;
@@ -89,6 +98,14 @@ public class AnalysisResult {
 
     public void setMessage(String message) {
         this.message = message;
+    }
+
+    public AnalyzerType getAnalyzerType() {
+        return analyzerType != null ? analyzerType : AnalyzerType.CHECKSTYLE;
+    }
+
+    public void setAnalyzerType(AnalyzerType analyzerType) {
+        this.analyzerType = analyzerType != null ? analyzerType : AnalyzerType.CHECKSTYLE;
     }
 
     @Override

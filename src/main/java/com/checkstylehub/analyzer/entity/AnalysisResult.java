@@ -1,5 +1,7 @@
 package com.checkstylehub.analyzer.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -18,6 +20,7 @@ import java.util.Objects;
  */
 @Entity
 @Table(name = "analysis_results")
+@JsonIgnoreProperties(ignoreUnknown = true, value = {"id", "request"})
 public class AnalysisResult {
 
     @Id

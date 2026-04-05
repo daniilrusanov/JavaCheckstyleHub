@@ -2,16 +2,21 @@ package com.checkstylehub.analyzer.service;
 
 import com.checkstylehub.analyzer.dto.LogMessageDto;
 import com.checkstylehub.analyzer.entity.AnalysisRequest;
+import com.checkstylehub.analyzer.entity.AnalysisResult;
 import com.checkstylehub.analyzer.exception.RepositoryAccessException;
 import com.checkstylehub.analyzer.repository.AnalysisRequestRepository;
 import com.checkstylehub.analyzer.repository.AnalysisResultRepository;
 import jakarta.persistence.EntityManager;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -29,6 +34,7 @@ public class AnalysisService {
     private final SimpMessagingTemplate messagingTemplate;
     private final com.checkstylehub.analyzer.repository.AnalysisLogRepository logRepository;
     private final EntityManager entityManager;
+    private final RedisTemplate<String, List<AnalysisResult>> redisTemplate;
 
     public AnalysisService(GitService gitService,
                            CheckstyleService checkstyleService,
@@ -36,7 +42,9 @@ public class AnalysisService {
                            AnalysisResultRepository resultRepository,
                            com.checkstylehub.analyzer.repository.AnalysisLogRepository logRepository,
                            SimpMessagingTemplate messagingTemplate,
-                           EntityManager entityManager) {
+                           EntityManager entityManager,
+                           @Qualifier("analysisResultsRedisTemplate")
+                           RedisTemplate<String, List<AnalysisResult>> redisTemplate) {
         this.gitService = gitService;
         this.checkstyleService = checkstyleService;
         this.requestRepository = requestRepository;
@@ -44,6 +52,7 @@ public class AnalysisService {
         this.logRepository = logRepository;
         this.messagingTemplate = messagingTemplate;
         this.entityManager = entityManager;
+        this.redisTemplate = redisTemplate;
     }
 
     /**
@@ -59,13 +68,26 @@ public class AnalysisService {
     public void startAnalysisFlow(Long requestId, String customCheckstyleConfig) {
         String logTopic = "/topic/logs/" + requestId;
         Path tempDir = null;
+        String cacheKey = null;
+        List<AnalysisResult> resultsForCache = null;
 
         try {
             AnalysisRequest request = requestRepository.findById(requestId)
                     .orElseThrow(() -> new RuntimeException("Request not found"));
 
+            logInfo("Перевіряю кеш та отримую останній коміт з віддаленого репозиторію...", logTopic);
+            String repoUrl = request.getRepoUrl();
+            String commitHash = gitService.getLatestCommitHash(repoUrl);
+            cacheKey = repoUrl + "_" + commitHash;
+
+            List<AnalysisResult> cached = redisTemplate.opsForValue().get(cacheKey);
+            if (cached != null) {
+                applyCachedResults(request, cached, logTopic);
+                return;
+            }
+
             updateStatusAndLog(request, AnalysisRequest.RequestStatus.CLONING, "Починаю клонування...", logTopic);
-            tempDir = gitService.cloneRepository(request.getRepoUrl());
+            tempDir = gitService.cloneRepository(repoUrl);
 
             logInfo("Клонування завершено. Шукаю Java файли...", logTopic);
             List<Path> javaFiles = checkstyleService.findJavaFiles(tempDir);
@@ -82,8 +104,9 @@ public class AnalysisService {
             logInfo("Збереження " + violations.size() + " результатів...", logTopic);
             request = entityManager.merge(request);
 
+            resultsForCache = new ArrayList<>();
             for (com.puppycrawl.tools.checkstyle.api.AuditEvent event : violations) {
-                com.checkstylehub.analyzer.entity.AnalysisResult result = new com.checkstylehub.analyzer.entity.AnalysisResult();
+                AnalysisResult result = new AnalysisResult();
                 result.setRequest(request);
                 String relativePath = safeRelativizeToString(tempDir, Path.of(event.getFileName()));
                 result.setFilePath(relativePath);
@@ -91,10 +114,15 @@ public class AnalysisService {
                 result.setSeverity(event.getSeverityLevel().getName());
                 result.setMessage(event.getMessage());
                 resultRepository.save(result);
+                resultsForCache.add(result);
             }
 
             entityManager.flush();
             logInfo("Результати успішно збережено в базу даних.", logTopic);
+
+            if (cacheKey != null && resultsForCache != null) {
+                redisTemplate.opsForValue().set(cacheKey, resultsForCache, Duration.ofDays(7));
+            }
 
             updateStatusAndLog(request, AnalysisRequest.RequestStatus.COMPLETED,
                     "Аналіз завершено. Знайдено " + violations.size() + " порушень.", logTopic);
@@ -114,6 +142,25 @@ public class AnalysisService {
                 }
             }
         }
+    }
+
+    private void applyCachedResults(AnalysisRequest request, List<AnalysisResult> cached, String logTopic) {
+        logInfo("Знайдено кешовані результати для цього коміту. Пропускаю клонування та аналіз.", logTopic);
+        logInfo("Збереження " + cached.size() + " результатів...", logTopic);
+        request = entityManager.merge(request);
+        for (AnalysisResult row : cached) {
+            AnalysisResult result = new AnalysisResult();
+            result.setRequest(request);
+            result.setFilePath(row.getFilePath());
+            result.setLineNumber(row.getLineNumber());
+            result.setSeverity(row.getSeverity());
+            result.setMessage(row.getMessage());
+            resultRepository.save(result);
+        }
+        entityManager.flush();
+        logInfo("Результати успішно збережено в базу даних.", logTopic);
+        updateStatusAndLog(request, AnalysisRequest.RequestStatus.COMPLETED,
+                "Аналіз завершено (з кешу). Знайдено " + cached.size() + " порушень.", logTopic);
     }
 
     /**

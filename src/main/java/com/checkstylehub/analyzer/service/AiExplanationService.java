@@ -123,21 +123,21 @@ public class AiExplanationService {
 
     private static final PromptTemplate SUMMARY_STUDENT_TEMPLATE = PromptTemplate.from("""
             Ти — терплячий Java-ментор для студента. Проаналізуй ці 10 найчастіших помилок: {{topErrors}}. \
-            Дай детальні поради, як їх уникати, з прикладами правильного коду. Пояснюй простою мовою.
+            Дай детальні поради УКРАЇНСЬКОЮ МОВОЮ, як їх уникати, з прикладами правильного коду. Пояснюй простою мовою.
 
             Рівень користувача в системі: {{experienceLevel}}.
             """);
 
     private static final PromptTemplate SUMMARY_JUNIOR_TEMPLATE = PromptTemplate.from("""
             Ти — Senior Java Developer. Проаналізуй ці 10 помилок джуніора: {{topErrors}}. \
-            Напиши загальний фідбек з фокусом на best practices.
+            Напиши загальний фідбек УКРАЇНСЬКОЮ МОВОЮ з фокусом на best practices.
 
             Рівень користувача в системі: {{experienceLevel}}.
             """);
 
     private static final PromptTemplate SUMMARY_ADVANCED_TEMPLATE = PromptTemplate.from("""
             Ти — Principal Engineer. Ось 10 найчастіших порушень стайл-гайду: {{topErrors}}. \
-            Надай коротке, сухе технічне summary (bullet points) без зайвої 'води'.
+            Надай коротке, сухе технічне summary (bullet points) без зайвої 'води' УКРАЇНСЬКОЮ МОВОЮ.
 
             Рівень користувача в системі: {{experienceLevel}}.
             """);

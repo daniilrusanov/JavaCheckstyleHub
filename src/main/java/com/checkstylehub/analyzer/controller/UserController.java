@@ -167,7 +167,8 @@ public class UserController {
                             req.getErrorMessage(),
                             req.getCreatedAt(),
                             req.getRepoUrl(),
-                            violationsCount
+                            violationsCount,
+                            req.getQualityScore()
                     );
                 })
                 .collect(Collectors.toList());

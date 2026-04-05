@@ -34,15 +34,19 @@ public class DirectCodeAnalysisService {
 
     private final CheckstyleService checkstyleService;
     private final PmdService pmdService;
+    private final MetricsCalculationService metricsCalculationService;
 
     // Pattern to extract class name from Java code
     private static final Pattern CLASS_NAME_PATTERN = Pattern.compile(
         "(?:public\\s+)?(?:abstract\\s+)?(?:final\\s+)?class\\s+(\\w+)"
     );
 
-    public DirectCodeAnalysisService(CheckstyleService checkstyleService, PmdService pmdService) {
+    public DirectCodeAnalysisService(CheckstyleService checkstyleService,
+                                     PmdService pmdService,
+                                     MetricsCalculationService metricsCalculationService) {
         this.checkstyleService = checkstyleService;
         this.pmdService = pmdService;
+        this.metricsCalculationService = metricsCalculationService;
     }
 
     /**
@@ -83,18 +87,20 @@ public class DirectCodeAnalysisService {
                 response.setCompilationErrors(compilationErrors);
             }
 
-            // Run Checkstyle analysis
+            // Run Checkstyle + PMD analysis
             List<Path> javaFiles = Collections.singletonList(javaFile);
             List<AnalysisResultDto> violationDtos = new ArrayList<>();
+            List<AuditEvent> checkstyleEvents = new ArrayList<>();
+            List<PmdService.PmdViolation> pmdViolations = new ArrayList<>();
             boolean checkstyleCompleted = false;
+            boolean syntheticCheckstyleViolation = false;
 
             try {
-                List<AuditEvent> violations = checkstyleService.runCheckstyle(
+                checkstyleEvents = checkstyleService.runCheckstyle(
                     tempDir, javaFiles, customConfigXml
                 );
 
-                // Convert to DTOs
-                for (AuditEvent event : violations) {
+                for (AuditEvent event : checkstyleEvents) {
                     violationDtos.add(new AnalysisResultDto(
                         null,
                         actualFileName,
@@ -106,16 +112,23 @@ public class DirectCodeAnalysisService {
                 }
                 checkstyleCompleted = true;
             } catch (Exception checkstyleError) {
-                // Checkstyle failed - likely due to severe syntax errors
-                // Still return a valid response with compilation errors info
                 if (response.getCompilationSuccess() != null && !response.getCompilationSuccess()) {
-                    // Code doesn't compile, that's the main issue
-                    response.setViolations(violationDtos);
-                    response.setViolationCount(0);
-                    response.setQualityScore(0);
+                    try {
+                        long loc = Math.max(1, metricsCalculationService.countLinesOfCode(javaFiles));
+                        int qs = metricsCalculationService.computeQualityScore(
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                loc,
+                                true);
+                        response.setViolations(violationDtos);
+                        response.setViolationCount(violationDtos.size());
+                        response.setQualityScore(qs);
+                    } catch (IOException e) {
+                        response.setQualityScore(0);
+                    }
                     return response;
                 }
-                // Add a synthetic error for unparseable code
+                syntheticCheckstyleViolation = true;
                 violationDtos.add(new AnalysisResultDto(
                     null,
                     actualFileName,
@@ -127,7 +140,7 @@ public class DirectCodeAnalysisService {
             }
 
             if (checkstyleCompleted) {
-                List<PmdService.PmdViolation> pmdViolations = pmdService.runPmd(tempDir, javaFiles);
+                pmdViolations = pmdService.runPmd(tempDir, javaFiles);
                 for (PmdService.PmdViolation v : pmdViolations) {
                     violationDtos.add(new AnalysisResultDto(
                             null,
@@ -143,10 +156,21 @@ public class DirectCodeAnalysisService {
             response.setViolations(violationDtos);
             response.setViolationCount(violationDtos.size());
 
-            // Calculate quality score
-            int qualityScore = calculateQualityScore(code, violationDtos.size(),
-                response.getCompilationSuccess());
-            response.setQualityScore(qualityScore);
+            try {
+                long loc = Math.max(1, metricsCalculationService.countLinesOfCode(javaFiles));
+                boolean compilationFailed =
+                        response.getCompilationSuccess() != null && !response.getCompilationSuccess();
+                long tdi = metricsCalculationService.computeTotalDefectIndex(
+                        checkstyleEvents, pmdViolations, compilationFailed);
+                if (syntheticCheckstyleViolation) {
+                    tdi += 5;
+                }
+                double dd = metricsCalculationService.computeDefectDensity(tdi, loc);
+                int qualityScore = metricsCalculationService.computeQualityScoreFromDefectDensity(dd);
+                response.setQualityScore(qualityScore);
+            } catch (IOException e) {
+                response.setQualityScore(0);
+            }
 
             return response;
 
@@ -248,55 +272,6 @@ public class DirectCodeAnalysisService {
         }
 
         return errors;
-    }
-
-    /**
-     * Calculates a quality score (0-100) based on various factors.
-     *
-     * @param code               the source code
-     * @param violationCount     number of Checkstyle violations
-     * @param compilationSuccess whether the code compiles
-     * @return quality score from 0 to 100
-     */
-    private int calculateQualityScore(String code, int violationCount, Boolean compilationSuccess) {
-        // Start with 100
-        int score = 100;
-
-        // If compilation failed, cap at 50
-        if (compilationSuccess != null && !compilationSuccess) {
-            score = Math.min(score, 50);
-        }
-
-        // Count lines of code (approximate)
-        int lineCount = code.split("\n").length;
-
-        // Calculate violations per line ratio
-        double violationsPerLine = lineCount > 0 ? (double) violationCount / lineCount : 0;
-
-        // Deduct points based on violations per line
-        // More than 0.5 violations per line is very bad
-        if (violationsPerLine > 0.5) {
-            score -= 40;
-        } else if (violationsPerLine > 0.3) {
-            score -= 30;
-        } else if (violationsPerLine > 0.2) {
-            score -= 20;
-        } else if (violationsPerLine > 0.1) {
-            score -= 10;
-        } else if (violationsPerLine > 0.05) {
-            score -= 5;
-        }
-
-        // Additional penalty for absolute number of violations
-        if (violationCount > 20) {
-            score -= 15;
-        } else if (violationCount > 10) {
-            score -= 10;
-        } else if (violationCount > 5) {
-            score -= 5;
-        }
-
-        return Math.max(0, Math.min(100, score));
     }
 
     /**

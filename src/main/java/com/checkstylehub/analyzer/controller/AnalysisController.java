@@ -89,7 +89,8 @@ public class AnalysisController {
                         req.getId(),
                         req.getStatus() != null ? req.getStatus().name() : null,
                         req.getErrorMessage(),
-                        req.getCreatedAt()
+                        req.getCreatedAt(),
+                        req.getQualityScore()
                 ))
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));

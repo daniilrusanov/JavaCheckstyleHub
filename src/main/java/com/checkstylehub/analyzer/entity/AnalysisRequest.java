@@ -43,6 +43,10 @@ public class AnalysisRequest {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    /** Quality score 0–100 from thesis formula (TDI / LOC → DD → QS). */
+    @Column
+    private Integer qualityScore;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
@@ -98,6 +102,14 @@ public class AnalysisRequest {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Integer getQualityScore() {
+        return qualityScore;
+    }
+
+    public void setQualityScore(Integer qualityScore) {
+        this.qualityScore = qualityScore;
     }
 
     public User getUser() {

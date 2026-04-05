@@ -1,5 +1,6 @@
 package com.checkstylehub.analyzer.service;
 
+import com.checkstylehub.analyzer.dto.CachedAnalysisBundle;
 import com.checkstylehub.analyzer.dto.LogMessageDto;
 import com.checkstylehub.analyzer.entity.AnalysisRequest;
 import com.checkstylehub.analyzer.entity.AnalysisResult;
@@ -14,6 +15,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -30,26 +32,29 @@ public class AnalysisService {
     private final GitService gitService;
     private final CheckstyleService checkstyleService;
     private final PmdService pmdService;
+    private final MetricsCalculationService metricsCalculationService;
     private final AnalysisRequestRepository requestRepository;
     private final AnalysisResultRepository resultRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final com.checkstylehub.analyzer.repository.AnalysisLogRepository logRepository;
     private final EntityManager entityManager;
-    private final RedisTemplate<String, List<AnalysisResult>> redisTemplate;
+    private final RedisTemplate<String, CachedAnalysisBundle> redisTemplate;
 
     public AnalysisService(GitService gitService,
                            CheckstyleService checkstyleService,
                            PmdService pmdService,
+                           MetricsCalculationService metricsCalculationService,
                            AnalysisRequestRepository requestRepository,
                            AnalysisResultRepository resultRepository,
                            com.checkstylehub.analyzer.repository.AnalysisLogRepository logRepository,
                            SimpMessagingTemplate messagingTemplate,
                            EntityManager entityManager,
                            @Qualifier("analysisResultsRedisTemplate")
-                           RedisTemplate<String, List<AnalysisResult>> redisTemplate) {
+                           RedisTemplate<String, CachedAnalysisBundle> redisTemplate) {
         this.gitService = gitService;
         this.checkstyleService = checkstyleService;
         this.pmdService = pmdService;
+        this.metricsCalculationService = metricsCalculationService;
         this.requestRepository = requestRepository;
         this.resultRepository = resultRepository;
         this.logRepository = logRepository;
@@ -71,7 +76,7 @@ public class AnalysisService {
         String logTopic = "/topic/logs/" + requestId;
         Path tempDir = null;
         String cacheKey = null;
-        List<AnalysisResult> resultsForCache = null;
+        CachedAnalysisBundle resultsForCache = null;
 
         try {
             AnalysisRequest request = requestRepository.findById(requestId)
@@ -82,8 +87,13 @@ public class AnalysisService {
             String commitHash = gitService.getLatestCommitHash(repoUrl);
             cacheKey = repoUrl + "_" + commitHash;
 
-            List<AnalysisResult> cached = redisTemplate.opsForValue().get(cacheKey);
-            if (cached != null) {
+            CachedAnalysisBundle cached = null;
+            try {
+                cached = redisTemplate.opsForValue().get(cacheKey);
+            } catch (Exception ignored) {
+                cached = null;
+            }
+            if (cached != null && cached.getResults() != null) {
                 applyCachedResults(request, cached, logTopic);
                 return;
             }
@@ -97,6 +107,13 @@ public class AnalysisService {
                 throw new IllegalStateException("Репозиторій не містить файлів Java (.java). Аналіз неможливий.");
             }
             logInfo("Знайдено " + javaFiles.size() + " Java файлів. Запускаю аналіз...", logTopic);
+
+            long linesOfCode;
+            try {
+                linesOfCode = metricsCalculationService.countLinesOfCode(javaFiles);
+            } catch (IOException e) {
+                throw new IllegalStateException("Не вдалося підрахувати рядки коду (LOC): " + e.getMessage(), e);
+            }
 
             updateStatusAndLog(request, AnalysisRequest.RequestStatus.ANALYZING, "Запуск аналізу Checkstyle...", logTopic);
 
@@ -114,7 +131,15 @@ public class AnalysisService {
             logInfo("Збереження " + totalViolations + " результатів...", logTopic);
             request = entityManager.merge(request);
 
-            resultsForCache = new ArrayList<>();
+            int qualityScore = metricsCalculationService.computeQualityScore(
+                    checkstyleViolations, pmdViolations, linesOfCode, false);
+            request.setQualityScore(qualityScore);
+            requestRepository.save(request);
+
+            resultsForCache = new CachedAnalysisBundle();
+            resultsForCache.setLinesOfCode(linesOfCode);
+            resultsForCache.setQualityScore(qualityScore);
+            List<AnalysisResult> cachedResults = new ArrayList<>();
             for (com.puppycrawl.tools.checkstyle.api.AuditEvent event : checkstyleViolations) {
                 AnalysisResult result = new AnalysisResult();
                 result.setRequest(request);
@@ -125,7 +150,7 @@ public class AnalysisService {
                 result.setSeverity(event.getSeverityLevel().getName());
                 result.setMessage(event.getMessage());
                 resultRepository.save(result);
-                resultsForCache.add(result);
+                cachedResults.add(result);
             }
             for (PmdService.PmdViolation v : pmdViolations) {
                 AnalysisResult result = new AnalysisResult();
@@ -136,11 +161,13 @@ public class AnalysisService {
                 result.setSeverity(v.severity());
                 result.setMessage(v.message());
                 resultRepository.save(result);
-                resultsForCache.add(result);
+                cachedResults.add(result);
             }
+            resultsForCache.setResults(cachedResults);
 
             entityManager.flush();
             logInfo("Результати успішно збережено в базу даних.", logTopic);
+            logInfo("Показник якості (Quality Score): " + qualityScore + "/100", logTopic);
 
             if (cacheKey != null && resultsForCache != null) {
                 redisTemplate.opsForValue().set(cacheKey, resultsForCache, Duration.ofDays(7));
@@ -167,11 +194,16 @@ public class AnalysisService {
         }
     }
 
-    private void applyCachedResults(AnalysisRequest request, List<AnalysisResult> cached, String logTopic) {
+    private void applyCachedResults(AnalysisRequest request, CachedAnalysisBundle cached, String logTopic) {
         logInfo("Знайдено кешовані результати для цього коміту. Пропускаю клонування та аналіз.", logTopic);
-        logInfo("Збереження " + cached.size() + " результатів...", logTopic);
+        List<AnalysisResult> rows = cached.getResults();
+        logInfo("Збереження " + rows.size() + " результатів...", logTopic);
         request = entityManager.merge(request);
-        for (AnalysisResult row : cached) {
+        if (cached.getQualityScore() != null) {
+            request.setQualityScore(cached.getQualityScore());
+            requestRepository.save(request);
+        }
+        for (AnalysisResult row : rows) {
             AnalysisResult result = new AnalysisResult();
             result.setRequest(request);
             result.setFilePath(row.getFilePath());
@@ -183,8 +215,11 @@ public class AnalysisService {
         }
         entityManager.flush();
         logInfo("Результати успішно збережено в базу даних.", logTopic);
+        if (cached.getQualityScore() != null) {
+            logInfo("Показник якості (Quality Score): " + cached.getQualityScore() + "/100", logTopic);
+        }
         updateStatusAndLog(request, AnalysisRequest.RequestStatus.COMPLETED,
-                "Аналіз завершено (з кешу). Знайдено " + cached.size() + " порушень.", logTopic);
+                "Аналіз завершено (з кешу). Знайдено " + rows.size() + " порушень.", logTopic);
     }
 
     /**

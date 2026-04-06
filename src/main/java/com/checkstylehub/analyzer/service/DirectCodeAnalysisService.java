@@ -136,17 +136,21 @@ public class DirectCodeAnalysisService {
             }
 
             if (checkstyleCompleted) {
-                pmdViolations = pmdService.runPmd(tempDir, javaFiles);
-                for (PmdService.PmdViolation v : pmdViolations) {
-                    violationDtos.add(new AnalysisResultDto(
-                            null,
-                            actualFileName,
-                            v.line(),
-                            v.severity(),
-                            v.message(),
-                            AnalyzerType.PMD,
-                            null
-                    ));
+                try {
+                    pmdViolations = pmdService.runPmd(tempDir, javaFiles);
+                    for (PmdService.PmdViolation v : pmdViolations) {
+                        violationDtos.add(new AnalysisResultDto(
+                                null,
+                                actualFileName,
+                                v.line(),
+                                v.severity(),
+                                v.message(),
+                                AnalyzerType.PMD,
+                                null
+                        ));
+                    }
+                } catch (Exception pmdError) {
+                    System.err.println("PMD Error in Direct Analysis: " + pmdError.getMessage());
                 }
             }
 

@@ -154,6 +154,16 @@ public class AiExplanationService {
     private final AnalysisResultRepository analysisResultRepository;
 
     /**
+     * Experience level for prompts and persistence when the caller is anonymous or has no level set.
+     */
+    public static ExperienceLevel resolveExperienceLevel(User user) {
+        if (user == null || user.getExperienceLevel() == null) {
+            return ExperienceLevel.STUDENT;
+        }
+        return user.getExperienceLevel();
+    }
+
+    /**
      * Generates a Markdown explanation for the given violation tailored to the user's experience level.
      *
      * @param result the analysis finding containing violation details and the code snippet
@@ -161,9 +171,7 @@ public class AiExplanationService {
      * @return Markdown-formatted AI response
      */
     public String explain(AnalysisResult result, User user) {
-        ExperienceLevel level = user.getExperienceLevel() != null
-                ? user.getExperienceLevel()
-                : ExperienceLevel.STUDENT;
+        ExperienceLevel level = resolveExperienceLevel(user);
 
         PromptTemplate template = switch (level) {
             case STUDENT -> STUDENT_TEMPLATE;
@@ -210,9 +218,7 @@ public class AiExplanationService {
                 })
                 .collect(Collectors.joining("\n"));
 
-        ExperienceLevel level = user.getExperienceLevel() != null
-                ? user.getExperienceLevel()
-                : ExperienceLevel.STUDENT;
+        ExperienceLevel level = resolveExperienceLevel(user);
 
         String experienceLevel = level.name();
         PromptTemplate summaryTemplate = switch (level) {
@@ -239,9 +245,7 @@ public class AiExplanationService {
      * @return Markdown-formatted AI response
      */
     public String generateStatelessExplanation(String codeSnippet, String message, User user) {
-        ExperienceLevel level = user.getExperienceLevel() != null
-                ? user.getExperienceLevel()
-                : ExperienceLevel.STUDENT;
+        ExperienceLevel level = resolveExperienceLevel(user);
 
         PromptTemplate template = switch (level) {
             case STUDENT -> STATELESS_STUDENT_TEMPLATE;

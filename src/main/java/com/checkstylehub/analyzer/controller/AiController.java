@@ -78,7 +78,7 @@ public class AiController {
                     AiExplanation entity = new AiExplanation();
                     entity.setAnalysisResult(result);
                     entity.setExplanation(markdown);
-                    entity.setExperienceLevel(user.getExperienceLevel());
+                    entity.setExperienceLevel(AiExplanationService.resolveExperienceLevel(user));
                     explanationRepository.save(entity);
 
                     return ResponseEntity.ok(markdown);

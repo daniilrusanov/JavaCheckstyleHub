@@ -4,6 +4,7 @@ import com.checkstylehub.analyzer.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -16,7 +17,11 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -26,6 +31,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.web.filter.CorsFilter;
+
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.Arrays;
 import java.util.List;
@@ -61,8 +68,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/results/**").permitAll()
                         // Checkstyle configuration
                         .requestMatchers("/api/checkstyle/**").permitAll()
-                        // AI explanation endpoint — requires authentication
-                        .requestMatchers("/api/ai/**").authenticated()
+                        // AI explanation — optional auth; unauthenticated users get STUDENT-level prompts
+                        .requestMatchers("/api/ai/**").permitAll()
                         // User-specific endpoints
                         .requestMatchers("/api/user/**").authenticated()
                         // All other requests require authentication
@@ -70,6 +77,18 @@ public class SecurityConfig {
                 )
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                .exceptionHandling(ex -> ex
+                        // Spring Security 6: anonymous → AuthorizationFilter → AccessDeniedException → 403 by default
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                            if (auth == null || auth instanceof AnonymousAuthenticationToken) {
+                                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            } else {
+                                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            }
+                        })
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

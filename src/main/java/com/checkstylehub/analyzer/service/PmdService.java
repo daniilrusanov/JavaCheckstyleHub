@@ -49,9 +49,9 @@ public class PmdService {
             Report report = pmd.performAnalysisAndCollectReport();
             if (!report.getConfigurationErrors().isEmpty()) {
                 String msg = report.getConfigurationErrors().stream()
-                        .map(Object::toString)
+                        .map(e -> e.rule().getName() + ": " + e.issue())
                         .collect(Collectors.joining("; "));
-                throw new IllegalStateException("PMD configuration errors: " + msg);
+                System.err.println("PMD configuration warnings (skipped rules): " + msg);
             }
             if (!report.getProcessingErrors().isEmpty()) {
                 String msg = report.getProcessingErrors().stream()

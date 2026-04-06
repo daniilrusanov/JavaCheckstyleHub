@@ -106,7 +106,8 @@ public class CheckstyleService {
                     );
 
             Checker checker = new Checker();
-            checker.setModuleClassLoader(Thread.currentThread().getContextClassLoader());
+            // Must use Checkstyle's classloader so named checks (e.g. LineLength) resolve; context CL often fails in Spring.
+            checker.setModuleClassLoader(Checker.class.getClassLoader());
             checker.configure(config);
             checker.addListener(listener);
             checker.setBasedir(baseDir.toAbsolutePath().toString());

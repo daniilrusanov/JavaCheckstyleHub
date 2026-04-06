@@ -22,6 +22,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Service responsible for orchestrating the complete code analysis workflow.
@@ -48,7 +49,7 @@ public class AnalysisService {
 
     /**
      * Executes the complete analysis workflow.
-     * Steps: clone repository → find Java files → run Checkstyle → run PMD → save results.
+     * Steps: clone repository → find Java files → run Checkstyle and PMD in parallel → save results.
      * Status updates and logs are sent via WebSocket in real-time.
      *
      * @param requestId              the ID of the analysis request
@@ -104,16 +105,39 @@ public class AnalysisService {
                 throw new IllegalStateException("Не вдалося підрахувати рядки коду (LOC): " + e.getMessage(), e);
             }
 
-            updateStatusAndLog(requestId, AnalysisRequest.RequestStatus.ANALYZING, "Запуск аналізу Checkstyle...", logTopic);
+            updateStatusAndLog(requestId, AnalysisRequest.RequestStatus.ANALYZING,
+                    "Запуск Checkstyle та PMD паралельно (ruleset " + PmdService.DEFAULT_RULESET + ")...", logTopic);
 
-            List<com.puppycrawl.tools.checkstyle.api.AuditEvent> checkstyleViolations =
-                    checkstyleService.runCheckstyle(tempDir, javaFiles, customCheckstyleConfig);
+            final Path analysisRoot = tempDir;
+            final List<Path> analysisJavaFiles = javaFiles;
+            final String analysisCheckstyleConfig = customCheckstyleConfig;
+
+            CompletableFuture<List<com.puppycrawl.tools.checkstyle.api.AuditEvent>> checkstyleFuture =
+                    CompletableFuture.supplyAsync(() -> {
+                        try {
+                            return checkstyleService.runCheckstyle(analysisRoot, analysisJavaFiles, analysisCheckstyleConfig);
+                        } catch (Exception e) {
+                            logInfo("Checkstyle завершився з помилкою: " + e.getMessage(), logTopic);
+                            return new ArrayList<>();
+                        }
+                    });
+
+            CompletableFuture<List<PmdService.PmdViolation>> pmdFuture =
+                    CompletableFuture.supplyAsync(() -> {
+                        try {
+                            return pmdService.runPmd(analysisRoot, analysisJavaFiles);
+                        } catch (Exception e) {
+                            logInfo("PMD завершився з помилкою: " + e.getMessage(), logTopic);
+                            return new ArrayList<>();
+                        }
+                    });
+
+            CompletableFuture.allOf(checkstyleFuture, pmdFuture).join();
+
+            List<com.puppycrawl.tools.checkstyle.api.AuditEvent> checkstyleViolations = checkstyleFuture.join();
+            List<PmdService.PmdViolation> pmdViolations = pmdFuture.join();
 
             logInfo("Checkstyle завершено. Знайдено " + checkstyleViolations.size() + " порушень.", logTopic);
-            logInfo("Запуск PMD (ruleset " + PmdService.DEFAULT_RULESET + ")...", logTopic);
-
-            List<PmdService.PmdViolation> pmdViolations = pmdService.runPmd(tempDir, javaFiles);
-
             logInfo("PMD завершено. Знайдено " + pmdViolations.size() + " порушень.", logTopic);
 
             int totalViolations = checkstyleViolations.size() + pmdViolations.size();

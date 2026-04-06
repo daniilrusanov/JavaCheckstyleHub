@@ -70,10 +70,11 @@ public class AnalysisController {
             userRepository.findById(user.getId()).ifPresent(request::setUser);
         }
         AnalysisRequest savedRequest = requestRepository.save(request);
-        Long id = savedRequest.getId();
-        String checkstyleConfig = requestDto.getCheckstyleConfig();
+        AnalysisQueueMessage queueMessage = new AnalysisQueueMessage(
+                savedRequest.getId(),
+                requestDto.getCheckstyleConfig());
 
-        scheduleAnalysisMessageAfterCommit(id, checkstyleConfig);
+        scheduleAnalysisMessageAfterCommit(queueMessage);
 
         return ResponseEntity.ok(savedRequest.getId());
     }
@@ -82,12 +83,11 @@ public class AnalysisController {
      * Sends the job to RabbitMQ only after the transaction that saved {@link AnalysisRequest} has committed,
      * so the consumer can load the row by id.
      */
-    private void scheduleAnalysisMessageAfterCommit(Long id, String checkstyleConfig) {
-        AnalysisQueueMessage message = new AnalysisQueueMessage(id, checkstyleConfig);
+    private void scheduleAnalysisMessageAfterCommit(AnalysisQueueMessage message) {
         Runnable send = () -> rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ANALYSIS_EXCHANGE,
                 RabbitMQConfig.ANALYSIS_ROUTING_KEY,
-                (Object) message);
+                message);
 
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

@@ -46,7 +46,8 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Ensures {@link RabbitTemplate#convertAndSend} serializes {@link com.checkstylehub.analyzer.dto.AnalysisQueueMessage} as JSON.
+     * Ensures {@link RabbitTemplate#convertAndSend} serializes
+     * {@link com.checkstylehub.analyzer.dto.AnalysisQueueMessage} as JSON.
      */
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory,

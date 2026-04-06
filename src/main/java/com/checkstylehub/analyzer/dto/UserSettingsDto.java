@@ -103,30 +103,80 @@ public class UserSettingsDto {
      * Apply DTO values to entity.
      */
     public void applyTo(UserSettings settings) {
-        if (charset != null) settings.setCharset(charset);
-        if (severity != null) settings.setSeverity(severity);
-        if (fileExtensions != null) settings.setFileExtensions(fileExtensions);
-        if (lineLength != null) settings.setLineLength(lineLength);
-        if (lineLengthIgnorePattern != null) settings.setLineLengthIgnorePattern(lineLengthIgnorePattern);
-        if (avoidStarImport != null) settings.setAvoidStarImport(avoidStarImport);
-        if (oneTopLevelClass != null) settings.setOneTopLevelClass(oneTopLevelClass);
-        if (noLineWrap != null) settings.setNoLineWrap(noLineWrap);
-        if (emptyBlock != null) settings.setEmptyBlock(emptyBlock);
-        if (needBraces != null) settings.setNeedBraces(needBraces);
-        if (leftCurly != null) settings.setLeftCurly(leftCurly);
-        if (rightCurly != null) settings.setRightCurly(rightCurly);
-        if (emptyStatement != null) settings.setEmptyStatement(emptyStatement);
-        if (equalsHashCode != null) settings.setEqualsHashCode(equalsHashCode);
-        if (illegalInstantiation != null) settings.setIllegalInstantiation(illegalInstantiation);
-        if (missingSwitchDefault != null) settings.setMissingSwitchDefault(missingSwitchDefault);
-        if (simplifyBooleanExpression != null) settings.setSimplifyBooleanExpression(simplifyBooleanExpression);
-        if (simplifyBooleanReturn != null) settings.setSimplifyBooleanReturn(simplifyBooleanReturn);
-        if (finalClass != null) settings.setFinalClass(finalClass);
-        if (hideUtilityClassConstructor != null) settings.setHideUtilityClassConstructor(hideUtilityClassConstructor);
-        if (interfaceIsType != null) settings.setInterfaceIsType(interfaceIsType);
-        if (visibilityModifier != null) settings.setVisibilityModifier(visibilityModifier);
-        if (outerTypeFilename != null) settings.setOuterTypeFilename(outerTypeFilename);
-        if (illegalTokenText != null) settings.setIllegalTokenText(illegalTokenText);
-        if (avoidEscapedUnicodeCharacters != null) settings.setAvoidEscapedUnicodeCharacters(avoidEscapedUnicodeCharacters);
+        if (charset != null) {
+            settings.setCharset(charset);
+        }
+        if (severity != null) {
+            settings.setSeverity(severity);
+        }
+        if (fileExtensions != null) {
+            settings.setFileExtensions(fileExtensions);
+        }
+        if (lineLength != null) {
+            settings.setLineLength(lineLength);
+        }
+        if (lineLengthIgnorePattern != null) {
+            settings.setLineLengthIgnorePattern(lineLengthIgnorePattern);
+        }
+        if (avoidStarImport != null) {
+            settings.setAvoidStarImport(avoidStarImport);
+        }
+        if (oneTopLevelClass != null) {
+            settings.setOneTopLevelClass(oneTopLevelClass);
+        }
+        if (noLineWrap != null) {
+            settings.setNoLineWrap(noLineWrap);
+        }
+        if (emptyBlock != null) {
+            settings.setEmptyBlock(emptyBlock);
+        }
+        if (needBraces != null) {
+            settings.setNeedBraces(needBraces);
+        }
+        if (leftCurly != null) {
+            settings.setLeftCurly(leftCurly);
+        }
+        if (rightCurly != null) {
+            settings.setRightCurly(rightCurly);
+        }
+        if (emptyStatement != null) {
+            settings.setEmptyStatement(emptyStatement);
+        }
+        if (equalsHashCode != null) {
+            settings.setEqualsHashCode(equalsHashCode);
+        }
+        if (illegalInstantiation != null) {
+            settings.setIllegalInstantiation(illegalInstantiation);
+        }
+        if (missingSwitchDefault != null) {
+            settings.setMissingSwitchDefault(missingSwitchDefault);
+        }
+        if (simplifyBooleanExpression != null) {
+            settings.setSimplifyBooleanExpression(simplifyBooleanExpression);
+        }
+        if (simplifyBooleanReturn != null) {
+            settings.setSimplifyBooleanReturn(simplifyBooleanReturn);
+        }
+        if (finalClass != null) {
+            settings.setFinalClass(finalClass);
+        }
+        if (hideUtilityClassConstructor != null) {
+            settings.setHideUtilityClassConstructor(hideUtilityClassConstructor);
+        }
+        if (interfaceIsType != null) {
+            settings.setInterfaceIsType(interfaceIsType);
+        }
+        if (visibilityModifier != null) {
+            settings.setVisibilityModifier(visibilityModifier);
+        }
+        if (outerTypeFilename != null) {
+            settings.setOuterTypeFilename(outerTypeFilename);
+        }
+        if (illegalTokenText != null) {
+            settings.setIllegalTokenText(illegalTokenText);
+        }
+        if (avoidEscapedUnicodeCharacters != null) {
+            settings.setAvoidEscapedUnicodeCharacters(avoidEscapedUnicodeCharacters);
+        }
     }
 }

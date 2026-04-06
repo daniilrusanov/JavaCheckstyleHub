@@ -91,11 +91,12 @@ public class CheckstyleService {
 
                 @Override
                 public void addException(AuditEvent event, Throwable throwable) {
-                    System.err.println("Checkstyle exception on file " + event.getFileName() + ": " + throwable.getMessage());
+                    System.err.println("Checkstyle exception on file " + event.getFileName() + ": "
+                            + throwable.getMessage());
                 }
             };
 
-            org.xml.sax.InputSource configSource = loadConfiguration(customConfigXml);
+            InputSource configSource = loadConfiguration(customConfigXml);
 
             com.puppycrawl.tools.checkstyle.api.Configuration config =
                     ConfigurationLoader.loadConfiguration(
@@ -129,9 +130,8 @@ public class CheckstyleService {
      *
      * @param customConfigXml optional custom configuration XML
      * @return InputSource containing the configuration
-     * @throws IOException if configuration loading fails
      */
-    private InputSource loadConfiguration(String customConfigXml) throws IOException {
+    private InputSource loadConfiguration(String customConfigXml) {
         if (customConfigXml != null && !customConfigXml.isBlank()) {
             return new InputSource(new ByteArrayInputStream(customConfigXml.getBytes()));
         } else {

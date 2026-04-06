@@ -23,6 +23,13 @@ import java.util.stream.Stream;
 @Service
 public class MetricsCalculationService {
 
+    /**
+     * Counts non-filtered lines across all given Java files.
+     *
+     * @param javaFiles paths to source files
+     * @return total line count
+     * @throws IOException if a file cannot be read
+     */
     public long countLinesOfCode(List<Path> javaFiles) throws IOException {
         long total = 0;
         for (Path p : javaFiles) {
@@ -57,17 +64,39 @@ public class MetricsCalculationService {
         return tdi;
     }
 
+    /**
+     * Defect density: (TDI / LOC) × 1000, with LOC at least 1.
+     *
+     * @param totalDefectIndex weighted defect sum
+     * @param linesOfCode      lines of code (0 treated as 1)
+     * @return defect density
+     */
     public double computeDefectDensity(long totalDefectIndex, long linesOfCode) {
         long loc = Math.max(1L, linesOfCode);
-        return (totalDefectIndex / (double) loc) * 1000.0;
+        return totalDefectIndex / (double) loc * 1000.0;
     }
 
+    /**
+     * Maps defect density to a quality score in [0, 100] using the thesis formula.
+     *
+     * @param defectDensity DD value
+     * @return rounded quality score
+     */
     public int computeQualityScoreFromDefectDensity(double defectDensity) {
         double qs = 100.0 * Math.exp(-0.005 * defectDensity);
         int rounded = (int) Math.round(qs);
         return Math.max(0, Math.min(100, rounded));
     }
 
+    /**
+     * Computes quality score from analyzer output and optional compilation failure flag.
+     *
+     * @param checkstyleEvents Checkstyle audit events
+     * @param pmdViolations    PMD violations
+     * @param linesOfCode      LOC for density
+     * @param compilationError whether compilation failed in direct analysis
+     * @return quality score 0–100
+     */
     public int computeQualityScore(
             List<AuditEvent> checkstyleEvents,
             List<PmdService.PmdViolation> pmdViolations,

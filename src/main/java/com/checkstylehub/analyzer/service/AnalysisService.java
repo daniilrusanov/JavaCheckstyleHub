@@ -10,6 +10,8 @@ import com.checkstylehub.analyzer.repository.AnalysisRequestRepository;
 import com.checkstylehub.analyzer.repository.AnalysisResultRepository;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -32,6 +34,8 @@ import java.util.concurrent.CompletableFuture;
 @Service
 @RequiredArgsConstructor
 public class AnalysisService {
+
+    private static final Logger log = LoggerFactory.getLogger(AnalysisService.class);
 
     private final GitService gitService;
     private final CheckstyleService checkstyleService;
@@ -58,8 +62,8 @@ public class AnalysisService {
     public void startAnalysisFlow(Long requestId, String customCheckstyleConfig) {
         String logTopic = "/topic/logs/" + requestId;
         Path tempDir = null;
-        String cacheKey = null;
-        CachedAnalysisBundle resultsForCache = null;
+        String cacheKey;
+        CachedAnalysisBundle resultsForCache;
 
         try {
             String repoUrl = transactionTemplate.execute(status ->
@@ -77,7 +81,7 @@ public class AnalysisService {
                     effectiveConfig.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             cacheKey = repoUrl + "_" + commitHash + "_" + configHash;
 
-            CachedAnalysisBundle cached = null;
+            CachedAnalysisBundle cached;
             try {
                 cached = redisTemplate.opsForValue().get(cacheKey);
             } catch (Exception ignored) {
@@ -115,7 +119,8 @@ public class AnalysisService {
             CompletableFuture<List<com.puppycrawl.tools.checkstyle.api.AuditEvent>> checkstyleFuture =
                     CompletableFuture.supplyAsync(() -> {
                         try {
-                            return checkstyleService.runCheckstyle(analysisRoot, analysisJavaFiles, analysisCheckstyleConfig);
+                            return checkstyleService.runCheckstyle(
+                                    analysisRoot, analysisJavaFiles, analysisCheckstyleConfig);
                         } catch (Exception e) {
                             logInfo("Checkstyle завершився з помилкою: " + e.getMessage(), logTopic);
                             return new ArrayList<>();
@@ -199,7 +204,7 @@ public class AnalysisService {
             logInfo("Результати успішно збережено в базу даних.", logTopic);
             logInfo("Показник якості (Quality Score): " + qualityScore + "/100", logTopic);
 
-            if (cacheKey != null && resultsForCache != null) {
+            if (resultsForCache != null) {
                 try {
                     redisTemplate.opsForValue().set(cacheKey, resultsForCache, Duration.ofDays(7));
                 } catch (Exception e) {
@@ -264,7 +269,8 @@ public class AnalysisService {
     /**
      * Updates the analysis request status and sends a log message via WebSocket.
      */
-    private void updateStatusAndLog(Long requestId, AnalysisRequest.RequestStatus status, String message, String topic) {
+    private void updateStatusAndLog(Long requestId, AnalysisRequest.RequestStatus status,
+            String message, String topic) {
         transactionTemplate.executeWithoutResult(tx -> {
             AnalysisRequest r = requestRepository.findById(requestId).orElseThrow();
             r.setStatus(status);
@@ -310,7 +316,8 @@ public class AnalysisService {
                 log.setTimestamp(java.time.LocalDateTime.now());
                 logRepository.save(log);
             });
-        } catch (Exception ignore) {
+        } catch (Exception ex) {
+            log.trace("Could not persist analysis log for topic {}", topic, ex);
         }
     }
 
@@ -389,7 +396,9 @@ public class AnalysisService {
                         }
                     }
                 }
-                String filenameOnly = otherAbs.getFileName() != null ? otherAbs.getFileName().toString() : otherAbs.toString();
+                String filenameOnly = otherAbs.getFileName() != null
+                        ? otherAbs.getFileName().toString()
+                        : otherAbs.toString();
                 return filenameOnly.replace('\\', '/');
             }
 
@@ -415,7 +424,10 @@ public class AnalysisService {
                         break;
                     }
                 }
-                return (otherAbs.getFileName() != null ? otherAbs.getFileName().toString() : otherAbs.toString()).replace('\\', '/');
+                String leaf = otherAbs.getFileName() != null
+                        ? otherAbs.getFileName().toString()
+                        : otherAbs.toString();
+                return leaf.replace('\\', '/');
             }
             return rel;
         } catch (IllegalArgumentException ex) {
@@ -431,7 +443,10 @@ public class AnalysisService {
                     }
                     return trimmed.replace('\\', '/');
                 }
-                return (otherAbs.getFileName() != null ? otherAbs.getFileName().toString() : otherAbs.toString()).replace('\\', '/');
+                String leaf = otherAbs.getFileName() != null
+                        ? otherAbs.getFileName().toString()
+                        : otherAbs.toString();
+                return leaf.replace('\\', '/');
             } catch (Exception e) {
                 return other.toString().replace('\\', '/');
             }

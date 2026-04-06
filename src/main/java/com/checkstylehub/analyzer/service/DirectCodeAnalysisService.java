@@ -19,10 +19,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -189,7 +186,9 @@ public class DirectCodeAnalysisService {
             if (tempDir != null) {
                 try {
                     deleteDirectory(tempDir);
-                } catch (IOException ignored) { }
+                } catch (IOException ignored) {
+                    // ignored
+                }
             }
         }
     }
@@ -220,9 +219,10 @@ public class DirectCodeAnalysisService {
      * Checks if the Java code compiles successfully using the Java Compiler API.
      *
      * @param javaFile path to the Java file
-     * @param code     the source code
+     * @param code     the source code (file on disk is compiled; parameter kept for API symmetry)
      * @return list of compilation errors (empty if compilation successful)
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     private List<CompilationError> checkCompilation(Path javaFile, String code) {
         List<CompilationError> errors = new ArrayList<>();
 
@@ -235,41 +235,40 @@ public class DirectCodeAnalysisService {
         }
 
         DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
-        StandardJavaFileManager fileManager = compiler.getStandardFileManager(
-            diagnostics, Locale.getDefault(), null
-        );
 
-        try {
-            Iterable<? extends JavaFileObject> compilationUnits =
-                fileManager.getJavaFileObjects(javaFile.toFile());
+        try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(
+                diagnostics, Locale.getDefault(), null
+        )) {
+            try {
+                Iterable<? extends JavaFileObject> compilationUnits =
+                        fileManager.getJavaFileObjects(javaFile.toFile());
 
-            StringWriter output = new StringWriter();
-            JavaCompiler.CompilationTask task = compiler.getTask(
-                output, fileManager, diagnostics, null, null, compilationUnits
-            );
+                StringWriter output = new StringWriter();
+                JavaCompiler.CompilationTask task = compiler.getTask(
+                        output, fileManager, diagnostics, null, null, compilationUnits
+                );
 
-            boolean success = task.call();
+                boolean success = task.call();
 
-            if (!success) {
-                for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
-                    if (diagnostic.getKind() == Diagnostic.Kind.ERROR) {
-                        errors.add(new CompilationError(
-                            diagnostic.getLineNumber(),
-                            diagnostic.getColumnNumber(),
-                            diagnostic.getMessage(Locale.getDefault()),
-                            diagnostic.getKind().name()
-                        ));
+                if (!success) {
+                    for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
+                        if (diagnostic.getKind() == Diagnostic.Kind.ERROR) {
+                            errors.add(new CompilationError(
+                                    diagnostic.getLineNumber(),
+                                    diagnostic.getColumnNumber(),
+                                    diagnostic.getMessage(Locale.getDefault()),
+                                    diagnostic.getKind().name()
+                            ));
+                        }
                     }
                 }
-            }
 
-        } catch (Exception e) {
-            errors.add(new CompilationError(0, 0,
-                "Помилка компіляції: " + e.getMessage(), "ERROR"));
-        } finally {
-            try {
-                fileManager.close();
-            } catch (IOException ignored) { }
+            } catch (Exception e) {
+                errors.add(new CompilationError(0, 0,
+                        "Помилка компіляції: " + e.getMessage(), "ERROR"));
+            }
+        } catch (IOException ignored) {
+            // ignored
         }
 
         return errors;
@@ -281,11 +280,13 @@ public class DirectCodeAnalysisService {
     private void deleteDirectory(Path directory) throws IOException {
         if (Files.exists(directory)) {
             Files.walk(directory)
-                .sorted((a, b) -> b.compareTo(a)) // Reverse order to delete files before directories
+                .sorted(Comparator.reverseOrder())
                 .forEach(path -> {
                     try {
                         Files.delete(path);
-                    } catch (IOException ignored) { }
+                    } catch (IOException ignored) {
+                        // ignored
+                    }
                 });
         }
     }

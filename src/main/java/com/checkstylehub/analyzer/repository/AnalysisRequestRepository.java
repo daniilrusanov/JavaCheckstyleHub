@@ -6,9 +6,12 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+/**
+ * Persistence for {@link AnalysisRequest} entities.
+ */
 @Repository
 public interface AnalysisRequestRepository extends JpaRepository<AnalysisRequest, Long> {
-    
+
     /**
      * Find all analysis requests by user ID, ordered by creation date descending.
      */

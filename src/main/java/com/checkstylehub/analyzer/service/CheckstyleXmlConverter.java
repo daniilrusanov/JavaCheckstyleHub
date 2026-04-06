@@ -127,7 +127,8 @@ public class CheckstyleXmlConverter {
                 illegalTokenText.setAttribute("name", "IllegalTokenText");
                 addProperty(doc, illegalTokenText, "tokens", "STRING_LITERAL, CHAR_LITERAL");
                 addProperty(doc, illegalTokenText, "format",
-                        "\\\\u00(08|09|0(a|A)|0(c|C)|0(d|D)|22|27|5(C|c))|\\\\(0(8|9|a|c|d)|1(0|1|2|3|4|5|6|7|8|9|a|b|c|d|e|f))");
+                        "\\\\u00(08|09|0(a|A)|0(c|C)|0(d|D)|22|27|5(C|c))|"
+                                + "\\\\(0(8|9|a|c|d)|1(0|1|2|3|4|5|6|7|8|9|a|b|c|d|e|f))");
                 addProperty(doc, illegalTokenText, "message",
                         "Avoid using corresponding octal or Unicode escape sequences.");
                 treeWalker.appendChild(illegalTokenText);

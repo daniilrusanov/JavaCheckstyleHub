@@ -15,7 +15,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Runs PMD programmatically on a set of Java sources using the default error-prone category ruleset.
+ * Runs PMD programmatically on a set of Java sources using the error-prone and design category rulesets
+ * (including cyclomatic and cognitive complexity).
  */
 @Service
 public class PmdService {
@@ -37,6 +38,7 @@ public class PmdService {
         config.setSourceEncoding(StandardCharsets.UTF_8);
         config.collectFilesRecursively(false);
         config.addRuleSet(DEFAULT_RULESET);
+        config.addRuleSet("category/java/design.xml");
         Path basePath = baseDir.toAbsolutePath().normalize();
         config.addRelativizeRoot(basePath);
         config.setInputPathList(javaFiles.stream()

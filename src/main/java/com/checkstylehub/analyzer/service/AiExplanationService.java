@@ -24,6 +24,9 @@ import java.util.stream.IntStream;
 @RequiredArgsConstructor
 public class AiExplanationService {
 
+    // ==========================================
+    // 1. ШАБЛОНИ ДЛЯ ЗВИЧАЙНОГО ПОЯСНЕННЯ
+    // ==========================================
     private static final PromptTemplate STUDENT_TEMPLATE = PromptTemplate.from("""
             Ти досвідчений Java-розробник та ментор. Поясни наступне порушення правил статичного аналізу \
             студенту-початківцю детально і зрозуміло ВИКЛЮЧНО УКРАЇНСЬКОЮ МОВОЮ.
@@ -44,7 +47,8 @@ public class AiExplanationService {
             """);
 
     private static final PromptTemplate JUNIOR_TEMPLATE = PromptTemplate.from("""
-            Ти Senior Java-розробник. Поясни порушення статичного аналізу УКРАЇНСЬКОЮ МОВОЮ для джун-розробника.
+            Ти старший (Senior) Java-розробник. Поясни порушення статичного аналізу ВИКЛЮЧНО УКРАЇНСЬКОЮ МОВОЮ \
+            для молодшого (Junior) розробника.
 
             **Файл:** {{filePath}}
             **Рядок:** {{lineNumber}}
@@ -61,7 +65,8 @@ public class AiExplanationService {
             """);
 
     private static final PromptTemplate ADVANCED_TEMPLATE = PromptTemplate.from("""
-            Ти — Principal Engineer. Проводиш code review. Відповідай ВИКЛЮЧНО УКРАЇНСЬКОЮ МОВОЮ, коротко і технічно.
+            Ти головний інженер (Principal Engineer). Проводиш перевірку коду. \
+            Відповідай ВИКЛЮЧНО УКРАЇНСЬКОЮ МОВОЮ, коротко і технічно.
 
             **Файл:** {{filePath}}  **Рядок:** {{lineNumber}}
             **Порушення:** {{message}}
@@ -75,6 +80,43 @@ public class AiExplanationService {
             2. **Виправлений код** (тільки виправлений код, без пояснень).
             """);
 
+
+    // ==========================================
+    // 2. ШАБЛОНИ ДЛЯ ЗАГАЛЬНОГО ВИСНОВКУ (SUMMARY)
+    // ==========================================
+    private static final PromptTemplate SUMMARY_STUDENT_TEMPLATE = PromptTemplate.from("""
+            Ти — терплячий Java-ментор. Користувач щойно проаналізував свій репозиторій. 
+            Ось його найчастіші помилки: 
+            {{topErrors}}
+            
+            Відповідай ВИКЛЮЧНО УКРАЇНСЬКОЮ МОВОЮ.
+            Напиши загальний висновок щодо якості коду. Дай доброзичливі поради, як уникати цих помилок у майбутньому. 
+            Пояснюй простою мовою, використовуй списки для зручності читання. 
+            УВАГА: Не намагайся писати приклади коду, оскільки ти не бачиш вихідного коду, лише назви помилок.
+            """);
+
+    private static final PromptTemplate SUMMARY_JUNIOR_TEMPLATE = PromptTemplate.from("""
+            Ти — старший (Senior) Java-розробник. Проведи загальний огляд коду на основі топ помилок розробника:
+            {{topErrors}}
+            
+            УВАГА: Твоя відповідь має бути ВИКЛЮЧНО УКРАЇНСЬКОЮ МОВОЮ. Не використовуй англійську для тексту!
+            Напиши конструктивний відгук форматом Markdown. Вкажи, які кращі практики порушено і як ці помилки можуть вплинути на підтримку проєкту в майбутньому. 
+            Використовуй професійну термінологію, але будь конструктивним. Не генеруй уявний код.
+            """);
+
+    private static final PromptTemplate SUMMARY_ADVANCED_TEMPLATE = PromptTemplate.from("""
+            Ти — головний інженер (Principal Engineer). Це загальний звіт результатів статичного аналізу:
+            {{topErrors}}
+            
+            Відповідай ВИКЛЮЧНО УКРАЇНСЬКОЮ МОВОЮ.
+            Надай максимально коротке і сухе резюме (bullet points). Вкажи архітектурні чи стилістичні ризики. 
+            Ніяких вітань чи вступних слів. Тільки технічні факти.
+            """);
+
+
+    // ==========================================
+    // 3. ШАБЛОНИ ДЛЯ DIRECT CODE (STATELESS)
+    // ==========================================
     private static final PromptTemplate STATELESS_STUDENT_TEMPLATE = PromptTemplate.from("""
             Ти досвідчений Java-розробник та ментор. Поясни наступне порушення правил статичного аналізу \
             студенту-початківцю детально і зрозуміло ВИКЛЮЧНО УКРАЇНСЬКОЮ МОВОЮ.
@@ -93,7 +135,8 @@ public class AiExplanationService {
             """);
 
     private static final PromptTemplate STATELESS_JUNIOR_TEMPLATE = PromptTemplate.from("""
-            Ти Senior Java-розробник. Поясни порушення статичного аналізу УКРАЇНСЬКОЮ МОВОЮ для джун-розробника.
+            Ти старший (Senior) Java-розробник. Поясни порушення статичного аналізу ВИКЛЮЧНО УКРАЇНСЬКОЮ МОВОЮ \
+            для молодшого (Junior) розробника.
 
             **Порушення:** {{message}}
 
@@ -108,7 +151,8 @@ public class AiExplanationService {
             """);
 
     private static final PromptTemplate STATELESS_ADVANCED_TEMPLATE = PromptTemplate.from("""
-            Ти — Principal Engineer. Проводиш code review. Відповідай ВИКЛЮЧНО УКРАЇНСЬКОЮ МОВОЮ, коротко і технічно.
+            Ти головний інженер (Principal Engineer). Проводиш перевірку коду. \
+            Відповідай ВИКЛЮЧНО УКРАЇНСЬКОЮ МОВОЮ, строго, коротко і технічно.
 
             **Порушення:** {{message}}
 
@@ -119,35 +163,6 @@ public class AiExplanationService {
             Надай:
             1. **Суть порушення** (один рядок українською).
             2. **Виправлений код** (тільки виправлений код, без пояснень).
-            """);
-
-    private static final PromptTemplate SUMMARY_STUDENT_TEMPLATE = PromptTemplate.from("""
-            Ти — терплячий Java-ментор. Користувач щойно проаналізував свій репозиторій.
-            Ось його 10 найчастіших помилок
-            {{topErrors}}
-            
-            Напиши загальний висновок УКРАЇНСЬКОЮ МОВОЮ щодо якості коду.
-            Дай доброзичливі поради, як уникати цих помилок у майбутньому.
-            Пояснюй простою мовою, використовуй списки для зручності читання.
-            УВАГА: Не намагайся писати приклади коду, оскільки ти не бачиш вихідного коду, лише назви помилок.
-            """);
-
-    private static final PromptTemplate SUMMARY_JUNIOR_TEMPLATE = PromptTemplate.from("""
-            Ти — Senior Java Developer. Проведи загальне code review на основі топ-10 помилок розробника:
-            {{topErrors}}
-            
-            Напиши конструктивний фідбек форматом Markdown УКРАЇНСЬКОЮ МОВОЮ. Вкажи, які best practices порушено
-            і як ці помилки можуть вплинути на підтримку проєкту в майбутньому
-            Використовуй професійну термінологію, але будь конструктивним. Не генеруй уявний код.
-            """);
-
-    private static final PromptTemplate SUMMARY_ADVANCED_TEMPLATE = PromptTemplate.from("""
-            Ти — Principal Engineer. Executive summary результатів статичного аналізу:
-            {{topErrors}}
-            
-            Надай максимально коротке і сухе резюме (bullet points) УКРАЇНСЬКОЮ МОВОЮ.
-            Вкажи архітектурні чи стилістичні ризики
-            Ніяких вітань чи вступних слів. Тільки технічні факти.
             """);
 
     private final OllamaChatModel chatModel;
@@ -220,7 +235,6 @@ public class AiExplanationService {
 
         ExperienceLevel level = resolveExperienceLevel(user);
 
-        String experienceLevel = level.name();
         PromptTemplate summaryTemplate = switch (level) {
             case STUDENT -> SUMMARY_STUDENT_TEMPLATE;
             case JUNIOR -> SUMMARY_JUNIOR_TEMPLATE;
@@ -228,7 +242,6 @@ public class AiExplanationService {
         };
 
         Prompt prompt = summaryTemplate.apply(Map.of(
-                "experienceLevel", experienceLevel,
                 "topErrors", topErrors
         ));
 
@@ -258,7 +271,6 @@ public class AiExplanationService {
                 : "(фрагмент коду недоступний)";
 
         Prompt prompt = template.apply(Map.of(
-                "experienceLevel", level.name(),
                 "message", message != null ? message : "",
                 "codeSnippet", snippet
         ));

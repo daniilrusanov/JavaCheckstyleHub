@@ -61,18 +61,18 @@ public class AiExplanationService {
             """);
 
     private static final PromptTemplate ADVANCED_TEMPLATE = PromptTemplate.from("""
-            Code review finding — respond in UKRAINIAN, keep it brief and technical.
+            Ти — Principal Engineer. Проводиш code review. Відповідай ВИКЛЮЧНО УКРАЇНСЬКОЮ МОВОЮ, коротко і технічно.
 
-            **File:** {{filePath}}  **Line:** {{lineNumber}}
-            **Violation:** {{message}}
+            **Файл:** {{filePath}}  **Рядок:** {{lineNumber}}
+            **Порушення:** {{message}}
 
             ```java
             {{codeSnippet}}
             ```
 
-            Provide:STATELESS_STUDENT_TEMPLATE
-            1. **One-line summary** of the violation (Ukrainian).
-            2. **Fixed snippet** — corrected code only, no prose comments.
+            Надай:
+            1. **Суть порушення** (один рядок українською).
+            2. **Виправлений код** (тільки виправлений код, без пояснень).
             """);
 
     private static final PromptTemplate STATELESS_STUDENT_TEMPLATE = PromptTemplate.from("""
@@ -108,22 +108,22 @@ public class AiExplanationService {
             """);
 
     private static final PromptTemplate STATELESS_ADVANCED_TEMPLATE = PromptTemplate.from("""
-            Code review finding — respond in UKRAINIAN, keep it strictly brief and technical.
+            Ти — Principal Engineer. Проводиш code review. Відповідай ВИКЛЮЧНО УКРАЇНСЬКОЮ МОВОЮ, коротко і технічно.
 
-            **Violation:** {{message}}
+            **Порушення:** {{message}}
 
             ```java
             {{codeSnippet}}
             ```
 
-            Provide:
-            1. **One-line summary** of the violation (in Ukrainian).
-            2. **Fixed snippet** — corrected code only, no prose comments.
+            Надай:
+            1. **Суть порушення** (один рядок українською).
+            2. **Виправлений код** (тільки виправлений код, без пояснень).
             """);
 
     private static final PromptTemplate SUMMARY_STUDENT_TEMPLATE = PromptTemplate.from("""
-            Ти — терплячий Java-ментор. Користувач щойно проаналізував свій репозиторій. 
-            Ось його 10 найчастіших помилок: 
+            Ти — терплячий Java-ментор. Користувач щойно проаналізував свій репозиторій.
+            Ось його 10 найчастіших помилок 
             {{topErrors}}
             
             Напиши загальний висновок УКРАЇНСЬКОЮ МОВОЮ щодо якості коду. 
@@ -136,8 +136,8 @@ public class AiExplanationService {
             Ти — Senior Java Developer. Проведи загальне code review на основі топ-10 помилок розробника:
             {{topErrors}}
             
-            Напиши конструктивний фідбек форматом Markdown УКРАЇНСЬКОЮ МОВОЮ. Вкажи, які best practices порушено 
-            і як ці помилки можуть вплинути на підтримку проєкту в майбутньому. 
+            Напиши конструктивний фідбек форматом Markdown УКРАЇНСЬКОЮ МОВОЮ. Вкажи, які best practices порушено
+            і як ці помилки можуть вплинути на підтримку проєкту в майбутньому 
             Використовуй професійну термінологію, але будь конструктивним. Не генеруй уявний код.
             """);
 
@@ -145,8 +145,8 @@ public class AiExplanationService {
             Ти — Principal Engineer. Executive summary результатів статичного аналізу:
             {{topErrors}}
             
-            Надай максимально коротке і сухе резюме (bullet points) УКРАЇНСЬКОЮ МОВОЮ. 
-            Вкажи архітектурні чи стилістичні ризики. 
+            Надай максимально коротке і сухе резюме (bullet points) УКРАЇНСЬКОЮ МОВОЮ.
+            Вкажи архітектурні чи стилістичні ризики 
             Ніяких вітань чи вступних слів. Тільки технічні факти.
             """);
 
@@ -197,7 +197,7 @@ public class AiExplanationService {
      * FRS06 — Generates a general Markdown summary of the most frequent violations
      * found in a completed analysis, tailored to the user's experience level.
      *
-     * @param requestId the analysis request to summarise
+     * @param requestId the analysis request to summarize
      * @param user      the requesting user whose experience level is included in the prompt
      * @return Markdown-formatted summary with improvement advice
      */

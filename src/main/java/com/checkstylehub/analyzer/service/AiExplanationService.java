@@ -137,7 +137,7 @@ public class AiExplanationService {
 
     private static final PromptTemplate SUMMARY_ADVANCED_TEMPLATE = PromptTemplate.from("""
             Ти — Principal Engineer. Ось 10 найчастіших порушень стайл-гайду: {{topErrors}}. \
-            Надай коротке, сухе технічне summary (bullet points) без зайвої 'води' УКРАЇНСЬКОЮ МОВОЮ.
+            Надай коротке, сухе технічне summary (bullet points) УКРАЇНСЬКОЮ МОВОЮ без зайвої 'води'.
 
             Рівень користувача в системі: {{experienceLevel}}.
             """);

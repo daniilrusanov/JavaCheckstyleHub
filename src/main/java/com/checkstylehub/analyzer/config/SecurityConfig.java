@@ -58,6 +58,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Allow all OPTIONS requests (CORS preflight)
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // AI endpoints — LLM resources require login
+                        .requestMatchers("/api/ai/**").authenticated()
                         // Public endpoints
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/ws-analyzer/**").permitAll()
@@ -68,8 +70,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/results/**").permitAll()
                         // Checkstyle configuration
                         .requestMatchers("/api/checkstyle/**").permitAll()
-                        // AI explanation — optional auth; unauthenticated users get STUDENT-level prompts
-                        .requestMatchers("/api/ai/**").permitAll()
                         // User-specific endpoints
                         .requestMatchers("/api/user/**").authenticated()
                         // All other requests require authentication

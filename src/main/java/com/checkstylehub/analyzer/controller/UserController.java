@@ -27,6 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -80,7 +81,7 @@ public class UserController {
                 return ResponseEntity.status(401).build();
             }
 
-            ExperienceLevel level = ExperienceLevel.valueOf(levelStr.toUpperCase());
+            ExperienceLevel level = ExperienceLevel.valueOf(levelStr.toUpperCase(Locale.ROOT));
             user.setExperienceLevel(level);
             userRepository.save(user);
 

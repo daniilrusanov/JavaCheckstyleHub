@@ -4,6 +4,8 @@ import com.checkstylehub.analyzer.entity.UserSettings;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.function.Consumer;
+
 /**
  * DTO for user Checkstyle settings.
  */
@@ -103,80 +105,48 @@ public class UserSettingsDto {
      * Apply DTO values to entity.
      */
     public void applyTo(UserSettings settings) {
-        if (charset != null) {
-            settings.setCharset(charset);
+        copyIfNotNull(charset, settings::setCharset);
+        copyIfNotNull(severity, settings::setSeverity);
+        copyIfNotNull(fileExtensions, settings::setFileExtensions);
+        copyIfNotNull(lineLength, settings::setLineLength);
+        copyIfNotNull(lineLengthIgnorePattern, settings::setLineLengthIgnorePattern);
+        copyIfNotNull(avoidStarImport, settings::setAvoidStarImport);
+        copyIfNotNull(oneTopLevelClass, settings::setOneTopLevelClass);
+        copyIfNotNull(noLineWrap, settings::setNoLineWrap);
+        copyIfNotNull(emptyBlock, settings::setEmptyBlock);
+        copyIfNotNull(needBraces, settings::setNeedBraces);
+        copyIfNotNull(leftCurly, settings::setLeftCurly);
+        copyIfNotNull(rightCurly, settings::setRightCurly);
+        copyIfNotNull(emptyStatement, settings::setEmptyStatement);
+        copyIfNotNull(equalsHashCode, settings::setEqualsHashCode);
+        copyIfNotNull(illegalInstantiation, settings::setIllegalInstantiation);
+        copyIfNotNull(missingSwitchDefault, settings::setMissingSwitchDefault);
+        copyIfNotNull(simplifyBooleanExpression, settings::setSimplifyBooleanExpression);
+        copyIfNotNull(simplifyBooleanReturn, settings::setSimplifyBooleanReturn);
+        copyIfNotNull(finalClass, settings::setFinalClass);
+        copyIfNotNull(hideUtilityClassConstructor, settings::setHideUtilityClassConstructor);
+        copyIfNotNull(interfaceIsType, settings::setInterfaceIsType);
+        copyIfNotNull(visibilityModifier, settings::setVisibilityModifier);
+        copyIfNotNull(outerTypeFilename, settings::setOuterTypeFilename);
+        copyIfNotNull(illegalTokenText, settings::setIllegalTokenText);
+        copyIfNotNull(avoidEscapedUnicodeCharacters, settings::setAvoidEscapedUnicodeCharacters);
+    }
+
+    private static void copyIfNotNull(String value, Consumer<String> setter) {
+        if (value != null) {
+            setter.accept(value);
         }
-        if (severity != null) {
-            settings.setSeverity(severity);
+    }
+
+    private static void copyIfNotNull(Integer value, Consumer<Integer> setter) {
+        if (value != null) {
+            setter.accept(value);
         }
-        if (fileExtensions != null) {
-            settings.setFileExtensions(fileExtensions);
-        }
-        if (lineLength != null) {
-            settings.setLineLength(lineLength);
-        }
-        if (lineLengthIgnorePattern != null) {
-            settings.setLineLengthIgnorePattern(lineLengthIgnorePattern);
-        }
-        if (avoidStarImport != null) {
-            settings.setAvoidStarImport(avoidStarImport);
-        }
-        if (oneTopLevelClass != null) {
-            settings.setOneTopLevelClass(oneTopLevelClass);
-        }
-        if (noLineWrap != null) {
-            settings.setNoLineWrap(noLineWrap);
-        }
-        if (emptyBlock != null) {
-            settings.setEmptyBlock(emptyBlock);
-        }
-        if (needBraces != null) {
-            settings.setNeedBraces(needBraces);
-        }
-        if (leftCurly != null) {
-            settings.setLeftCurly(leftCurly);
-        }
-        if (rightCurly != null) {
-            settings.setRightCurly(rightCurly);
-        }
-        if (emptyStatement != null) {
-            settings.setEmptyStatement(emptyStatement);
-        }
-        if (equalsHashCode != null) {
-            settings.setEqualsHashCode(equalsHashCode);
-        }
-        if (illegalInstantiation != null) {
-            settings.setIllegalInstantiation(illegalInstantiation);
-        }
-        if (missingSwitchDefault != null) {
-            settings.setMissingSwitchDefault(missingSwitchDefault);
-        }
-        if (simplifyBooleanExpression != null) {
-            settings.setSimplifyBooleanExpression(simplifyBooleanExpression);
-        }
-        if (simplifyBooleanReturn != null) {
-            settings.setSimplifyBooleanReturn(simplifyBooleanReturn);
-        }
-        if (finalClass != null) {
-            settings.setFinalClass(finalClass);
-        }
-        if (hideUtilityClassConstructor != null) {
-            settings.setHideUtilityClassConstructor(hideUtilityClassConstructor);
-        }
-        if (interfaceIsType != null) {
-            settings.setInterfaceIsType(interfaceIsType);
-        }
-        if (visibilityModifier != null) {
-            settings.setVisibilityModifier(visibilityModifier);
-        }
-        if (outerTypeFilename != null) {
-            settings.setOuterTypeFilename(outerTypeFilename);
-        }
-        if (illegalTokenText != null) {
-            settings.setIllegalTokenText(illegalTokenText);
-        }
-        if (avoidEscapedUnicodeCharacters != null) {
-            settings.setAvoidEscapedUnicodeCharacters(avoidEscapedUnicodeCharacters);
+    }
+
+    private static void copyIfNotNull(Boolean value, Consumer<Boolean> setter) {
+        if (value != null) {
+            setter.accept(value);
         }
     }
 }

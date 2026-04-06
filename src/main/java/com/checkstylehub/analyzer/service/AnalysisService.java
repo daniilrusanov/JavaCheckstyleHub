@@ -24,6 +24,8 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -362,14 +364,14 @@ public class AnalysisService {
             Path baseAbs = base.toAbsolutePath().normalize();
             Path otherAbs = other.toAbsolutePath().normalize();
 
-            boolean differentFs = baseAbs.getFileSystem() != otherAbs.getFileSystem();
+            boolean differentFs = !Objects.equals(baseAbs.getFileSystem(), otherAbs.getFileSystem());
             boolean differentRoot = (baseAbs.getRoot() == null && otherAbs.getRoot() != null)
                     || (baseAbs.getRoot() != null && !baseAbs.getRoot().equals(otherAbs.getRoot()));
 
             String baseStr = baseAbs.toString();
             String otherStr = otherAbs.toString();
-            String baseStrLc = baseStr.toLowerCase();
-            String otherStrLc = otherStr.toLowerCase();
+            String baseStrLc = baseStr.toLowerCase(Locale.ROOT);
+            String otherStrLc = otherStr.toLowerCase(Locale.ROOT);
             if (otherStrLc.startsWith(baseStrLc)) {
                 String trimmed = otherStr.substring(baseStr.length());
                 if (trimmed.startsWith("\\") || trimmed.startsWith("/")) {
@@ -436,7 +438,7 @@ public class AnalysisService {
                 Path otherAbs = other.toAbsolutePath().normalize();
                 String baseStr = baseAbs.toString();
                 String otherStr = otherAbs.toString();
-                if (otherStr.toLowerCase().startsWith(baseStr.toLowerCase())) {
+                if (otherStr.toLowerCase(Locale.ROOT).startsWith(baseStr.toLowerCase(Locale.ROOT))) {
                     String trimmed = otherStr.substring(baseStr.length());
                     if (trimmed.startsWith("\\") || trimmed.startsWith("/")) {
                         trimmed = trimmed.substring(1);
@@ -447,7 +449,7 @@ public class AnalysisService {
                         ? otherAbs.getFileName().toString()
                         : otherAbs.toString();
                 return leaf.replace('\\', '/');
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 return other.toString().replace('\\', '/');
             }
         }

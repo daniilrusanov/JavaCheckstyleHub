@@ -64,7 +64,7 @@ public class AiController {
                     String markdown;
                     try {
                         markdown = aiExplanationService.explain(result, user);
-                    } catch (Exception e) {
+                    } catch (RuntimeException e) {
                         if (isConnectionRefused(e)) {
                             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                                     "Сервіс Ollama недоступний. " +
@@ -107,7 +107,7 @@ public class AiController {
         try {
             String markdown = aiExplanationService.generateGeneralSummary(requestId, user);
             return ResponseEntity.ok(markdown);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             if (isConnectionRefused(e)) {
                 throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                         "Сервіс Ollama недоступний. " +
@@ -136,7 +136,7 @@ public class AiController {
                     body.getMessage(),
                     user);
             return ResponseEntity.ok(markdown);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             if (isConnectionRefused(e)) {
                 throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                         "Сервіс Ollama недоступний. " +

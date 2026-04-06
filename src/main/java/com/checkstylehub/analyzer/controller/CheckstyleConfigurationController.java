@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+
 /**
  * REST controller for managing Checkstyle configuration.
  * Provides endpoints for getting, updating, and resetting configuration rules.
@@ -100,80 +103,41 @@ public class CheckstyleConfigurationController {
     }
 
     private void mergeConfigurations(CheckstyleRulesDto target, CheckstyleRulesDto source) {
-        if (source.getCharset() != null) {
-            target.setCharset(source.getCharset());
-        }
-        if (source.getSeverity() != null) {
-            target.setSeverity(source.getSeverity());
-        }
-        if (source.getFileExtensions() != null) {
-            target.setFileExtensions(source.getFileExtensions());
-        }
-        if (source.getLineLength() != null) {
-            target.setLineLength(source.getLineLength());
-        }
-        if (source.getLineLengthIgnorePattern() != null) {
-            target.setLineLengthIgnorePattern(source.getLineLengthIgnorePattern());
-        }
-        if (source.getAvoidStarImport() != null) {
-            target.setAvoidStarImport(source.getAvoidStarImport());
-        }
-        if (source.getOneTopLevelClass() != null) {
-            target.setOneTopLevelClass(source.getOneTopLevelClass());
-        }
-        if (source.getNoLineWrap() != null) {
-            target.setNoLineWrap(source.getNoLineWrap());
-        }
-        if (source.getEmptyBlock() != null) {
-            target.setEmptyBlock(source.getEmptyBlock());
-        }
-        if (source.getNeedBraces() != null) {
-            target.setNeedBraces(source.getNeedBraces());
-        }
-        if (source.getLeftCurly() != null) {
-            target.setLeftCurly(source.getLeftCurly());
-        }
-        if (source.getRightCurly() != null) {
-            target.setRightCurly(source.getRightCurly());
-        }
-        if (source.getEmptyStatement() != null) {
-            target.setEmptyStatement(source.getEmptyStatement());
-        }
-        if (source.getEqualsHashCode() != null) {
-            target.setEqualsHashCode(source.getEqualsHashCode());
-        }
-        if (source.getIllegalInstantiation() != null) {
-            target.setIllegalInstantiation(source.getIllegalInstantiation());
-        }
-        if (source.getMissingSwitchDefault() != null) {
-            target.setMissingSwitchDefault(source.getMissingSwitchDefault());
-        }
-        if (source.getSimplifyBooleanExpression() != null) {
-            target.setSimplifyBooleanExpression(source.getSimplifyBooleanExpression());
-        }
-        if (source.getSimplifyBooleanReturn() != null) {
-            target.setSimplifyBooleanReturn(source.getSimplifyBooleanReturn());
-        }
-        if (source.getFinalClass() != null) {
-            target.setFinalClass(source.getFinalClass());
-        }
-        if (source.getHideUtilityClassConstructor() != null) {
-            target.setHideUtilityClassConstructor(source.getHideUtilityClassConstructor());
-        }
-        if (source.getInterfaceIsType() != null) {
-            target.setInterfaceIsType(source.getInterfaceIsType());
-        }
-        if (source.getVisibilityModifier() != null) {
-            target.setVisibilityModifier(source.getVisibilityModifier());
-        }
-        if (source.getOuterTypeFilename() != null) {
-            target.setOuterTypeFilename(source.getOuterTypeFilename());
-        }
-        if (source.getIllegalTokenText() != null) {
-            target.setIllegalTokenText(source.getIllegalTokenText());
-        }
-        if (source.getAvoidEscapedUnicodeCharacters() != null) {
-            target.setAvoidEscapedUnicodeCharacters(source.getAvoidEscapedUnicodeCharacters());
+        copyIfNotNull(source, target, CheckstyleRulesDto::getCharset, CheckstyleRulesDto::setCharset);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getSeverity, CheckstyleRulesDto::setSeverity);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getFileExtensions, CheckstyleRulesDto::setFileExtensions);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getLineLength, CheckstyleRulesDto::setLineLength);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getLineLengthIgnorePattern, CheckstyleRulesDto::setLineLengthIgnorePattern);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getAvoidStarImport, CheckstyleRulesDto::setAvoidStarImport);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getOneTopLevelClass, CheckstyleRulesDto::setOneTopLevelClass);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getNoLineWrap, CheckstyleRulesDto::setNoLineWrap);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getEmptyBlock, CheckstyleRulesDto::setEmptyBlock);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getNeedBraces, CheckstyleRulesDto::setNeedBraces);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getLeftCurly, CheckstyleRulesDto::setLeftCurly);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getRightCurly, CheckstyleRulesDto::setRightCurly);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getEmptyStatement, CheckstyleRulesDto::setEmptyStatement);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getEqualsHashCode, CheckstyleRulesDto::setEqualsHashCode);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getIllegalInstantiation, CheckstyleRulesDto::setIllegalInstantiation);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getMissingSwitchDefault, CheckstyleRulesDto::setMissingSwitchDefault);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getSimplifyBooleanExpression, CheckstyleRulesDto::setSimplifyBooleanExpression);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getSimplifyBooleanReturn, CheckstyleRulesDto::setSimplifyBooleanReturn);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getFinalClass, CheckstyleRulesDto::setFinalClass);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getHideUtilityClassConstructor, CheckstyleRulesDto::setHideUtilityClassConstructor);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getInterfaceIsType, CheckstyleRulesDto::setInterfaceIsType);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getVisibilityModifier, CheckstyleRulesDto::setVisibilityModifier);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getOuterTypeFilename, CheckstyleRulesDto::setOuterTypeFilename);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getIllegalTokenText, CheckstyleRulesDto::setIllegalTokenText);
+        copyIfNotNull(source, target, CheckstyleRulesDto::getAvoidEscapedUnicodeCharacters, CheckstyleRulesDto::setAvoidEscapedUnicodeCharacters);
+    }
+
+    private static <T> void copyIfNotNull(
+            CheckstyleRulesDto source,
+            CheckstyleRulesDto target,
+            Function<CheckstyleRulesDto, T> getter,
+            BiConsumer<CheckstyleRulesDto, T> setter) {
+        T value = getter.apply(source);
+        if (value != null) {
+            setter.accept(target, value);
         }
     }
 }

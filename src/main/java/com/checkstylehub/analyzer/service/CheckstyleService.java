@@ -106,7 +106,7 @@ public class CheckstyleService {
                     );
 
             Checker checker = new Checker();
-            checker.setModuleClassLoader(Checker.class.getClassLoader());
+            checker.setModuleClassLoader(Thread.currentThread().getContextClassLoader());
             checker.configure(config);
             checker.addListener(listener);
             checker.setBasedir(baseDir.toAbsolutePath().toString());

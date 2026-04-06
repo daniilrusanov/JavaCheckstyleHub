@@ -1,5 +1,6 @@
 package com.checkstylehub.analyzer.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -14,7 +15,9 @@ import java.util.List;
 @NoArgsConstructor
 public class CodeAnalysisResponseDto {
 
-    private boolean success;
+    /** JSON field name remains {@code success} (avoids clash with static factory methods). */
+    @JsonProperty("success")
+    private boolean successful;
     private String errorMessage;
     private Boolean compilationSuccess;
     private List<CompilationError> compilationErrors = new ArrayList<>();
@@ -24,14 +27,14 @@ public class CodeAnalysisResponseDto {
 
     public static CodeAnalysisResponseDto error(String message) {
         CodeAnalysisResponseDto response = new CodeAnalysisResponseDto();
-        response.setSuccess(false);
+        response.setSuccessful(false);
         response.setErrorMessage(message);
         return response;
     }
 
-    public static CodeAnalysisResponseDto success(List<AnalysisResultDto> violations) {
+    public static CodeAnalysisResponseDto withViolations(List<AnalysisResultDto> violations) {
         CodeAnalysisResponseDto response = new CodeAnalysisResponseDto();
-        response.setSuccess(true);
+        response.setSuccessful(true);
         response.setViolations(violations);
         response.setViolationCount(violations.size());
         return response;

@@ -69,7 +69,7 @@ public class DirectCodeAnalysisService {
             Files.writeString(javaFile, code);
 
             CodeAnalysisResponseDto response = new CodeAnalysisResponseDto();
-            response.setSuccess(true);
+            response.setSuccessful(true);
 
             // Check compilation if requested
             if (checkCompilation) {

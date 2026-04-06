@@ -133,14 +133,14 @@ public class CheckstyleConfigurationService {
             }
 
             // Fallback: Try finding it via class loader explicitly
-            var url = this.getClass().getClassLoader().getResource(DEFAULT_CONFIG_FILE);
+            var url = Thread.currentThread().getContextClassLoader().getResource(DEFAULT_CONFIG_FILE);
             if (url != null) {
                  return new String(url.openStream().readAllBytes(), StandardCharsets.UTF_8);
             }
 
             throw new IOException("File not found in classpath: " + DEFAULT_CONFIG_FILE);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to load default Checkstyle configuration: " + e.getMessage(), e);
+            throw new IllegalStateException("Failed to load default Checkstyle configuration: " + e.getMessage(), e);
         }
     }
 

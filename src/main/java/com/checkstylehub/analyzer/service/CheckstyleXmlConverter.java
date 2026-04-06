@@ -9,14 +9,19 @@ import org.w3c.dom.NodeList;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+
+import org.xml.sax.SAXException;
 
 /**
  * Service for converting between Checkstyle XML configuration and structured CheckstyleRulesDto.
@@ -77,8 +82,8 @@ public class CheckstyleXmlConverter {
                 dto.setVisibilityModifier(hasModule(treeWalker, "VisibilityModifier"));
             }
 
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse XML configuration: " + e.getMessage(), e);
+        } catch (ParserConfigurationException | SAXException | IOException e) {
+            throw new IllegalStateException("Failed to parse XML configuration: " + e.getMessage(), e);
         }
 
         return dto;
@@ -196,8 +201,8 @@ public class CheckstyleXmlConverter {
 
             return documentToString(doc);
 
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to generate XML configuration: " + e.getMessage(), e);
+        } catch (ParserConfigurationException | TransformerException e) {
+            throw new IllegalStateException("Failed to generate XML configuration: " + e.getMessage(), e);
         }
     }
 
@@ -251,7 +256,7 @@ public class CheckstyleXmlConverter {
         parent.appendChild(module);
     }
 
-    private String documentToString(Document doc) throws Exception {
+    private String documentToString(Document doc) throws TransformerException {
         TransformerFactory tf = TransformerFactory.newInstance();
         Transformer transformer = tf.newTransformer();
         transformer.setOutputProperty(OutputKeys.INDENT, "yes");

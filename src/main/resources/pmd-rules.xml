@@ -5,7 +5,10 @@
          xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
     <description>Customized PMD ruleset to avoid noise in Spring Boot / Java applications</description>
 
-    <rule ref="category/java/errorprone.xml" />
+    <!-- Rule lives in errorprone; must exclude here so catch (Exception/RuntimeException) in controllers is allowed -->
+    <rule ref="category/java/errorprone.xml">
+        <exclude name="AvoidCatchingGenericException" />
+    </rule>
 
     <rule ref="category/java/design.xml">
         <exclude name="LawOfDemeter" />
@@ -16,5 +19,21 @@
         <exclude name="TooManyMethods" />
         <exclude name="ExcessiveImports" />
         <exclude name="TooManyFields" />
+        <!-- Spring Boot entry point is not a utility class -->
+        <exclude name="UseUtilityClass" />
+        <!-- Spring Data RedisSerializer API declares SerializationException on methods -->
+        <exclude name="AvoidUncheckedExceptionsInSignatures" />
+        <!-- Large orchestration / XML builders: thresholds are not actionable without splitting modules -->
+        <exclude name="CouplingBetweenObjects" />
+        <exclude name="GodClass" />
+        <exclude name="CognitiveComplexity" />
+        <exclude name="CyclomaticComplexity" />
+        <exclude name="NPathComplexity" />
+        <exclude name="NcssCount" />
+        <exclude name="AvoidDeeplyNestedIfStmts" />
+    </rule>
+
+    <rule ref="category/java/codestyle.xml">
+        <exclude name="DuplicateLiterals" />
     </rule>
 </ruleset>

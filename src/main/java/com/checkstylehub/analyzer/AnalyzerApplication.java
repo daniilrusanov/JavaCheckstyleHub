@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * Main Spring Boot application class for Checkstyle Analyzer.
  * Repository analysis runs asynchronously (RabbitMQ when enabled, otherwise a background task executor).
  */
-@SuppressWarnings("PMD.UtilityClass")
+@SuppressWarnings("PMD.UseUtilityClass")
 @SpringBootApplication
 public class AnalyzerApplication {
 

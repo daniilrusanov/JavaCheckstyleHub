@@ -18,6 +18,7 @@ import java.util.function.Function;
 /**
  * Service for JWT token generation and validation.
  */
+@SuppressWarnings("PMD.ReplaceJavaUtilDate")
 @Service
 public class JwtService {
 

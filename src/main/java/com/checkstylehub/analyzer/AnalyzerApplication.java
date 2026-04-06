@@ -10,6 +10,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class AnalyzerApplication {
 
+    private AnalyzerApplication() {
+        // Spring Boot entry point; not instantiated directly
+    }
+
     public static void main(String[] args) {
         SpringApplication.run(AnalyzerApplication.class, args);
     }

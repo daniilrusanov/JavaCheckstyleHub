@@ -44,7 +44,7 @@ public class DirectCodeAnalysisService {
      * Analyzes Java code directly without requiring a Git repository.
      *
      * @param code             the Java source code to analyze
-     * @param fileName         optional filename (will be derived from class name if null)
+     * @param fileName         optional filename (will be derived from the class name if null)
      * @param checkCompilation whether to check if the code compiles
      * @param customConfigXml  optional custom Checkstyle configuration
      * @return analysis results including violations and optional compilation status
@@ -58,13 +58,13 @@ public class DirectCodeAnalysisService {
 
         Path tempDir = null;
         try {
-            // Create temporary directory
+            // Create a temporary directory
             tempDir = Files.createTempDirectory("checkstyle-direct-");
 
             // Determine filename from class name or use provided/default
             String actualFileName = determineFileName(code, fileName);
 
-            // Write code to temporary file
+            // Write code to a temporary file
             Path javaFile = tempDir.resolve(actualFileName);
             Files.writeString(javaFile, code);
 
@@ -205,7 +205,7 @@ public class DirectCodeAnalysisService {
             return providedFileName;
         }
 
-        // Try to extract class name from code
+        // Try to extract the class name from code
         Matcher matcher = CLASS_NAME_PATTERN.matcher(code);
         if (matcher.find()) {
             return matcher.group(1) + ".java";
@@ -219,7 +219,7 @@ public class DirectCodeAnalysisService {
      * Checks if the Java code compiles successfully using the Java Compiler API.
      *
      * @param javaFile path to the Java file
-     * @param code     the source code (file on disk is compiled; parameter kept for API symmetry)
+     * @param code     the source code (a file on disk is compiled; parameter kept for API symmetry)
      * @return list of compilation errors (empty if compilation successful)
      */
     @SuppressWarnings("PMD.UnusedFormalParameter")

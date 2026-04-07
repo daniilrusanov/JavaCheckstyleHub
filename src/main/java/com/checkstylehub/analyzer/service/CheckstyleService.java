@@ -106,8 +106,8 @@ public class CheckstyleService {
                     );
 
             Checker checker = new Checker();
-            ClassLoader moduleLoader = Thread.currentThread().getContextClassLoader();
-            checker.setModuleClassLoader(moduleLoader != null ? moduleLoader : Checker.class.getClassLoader());
+            // Spring's context ClassLoader may not load the checkstyle JAR; Checker must see module classes.
+            checker.setModuleClassLoader(Checker.class.getClassLoader());
             checker.configure(config);
             checker.addListener(listener);
             checker.setBasedir(baseDir.toAbsolutePath().toString());

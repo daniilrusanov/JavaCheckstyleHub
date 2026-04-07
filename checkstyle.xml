@@ -11,7 +11,7 @@
     <!-- Line length check - 120 characters -->
     <module name="LineLength">
         <property name="max" value="120"/>
-        <property name="ignorePattern" value="^package.*|^import.*|a]+ href|href|http://|https://|ftp://"/>
+        <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
     </module>
 
     <!-- Trailing whitespace -->

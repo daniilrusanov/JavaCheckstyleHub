@@ -23,7 +23,7 @@ public class CachedAnalysisBundleRedisSerializer implements RedisSerializer<Cach
     }
 
     @Override
-    public byte[] serialize(CachedAnalysisBundle value) throws SerializationException {
+    public byte[] serialize(CachedAnalysisBundle value) {
         if (value == null) {
             return new byte[0];
         }
@@ -35,7 +35,7 @@ public class CachedAnalysisBundleRedisSerializer implements RedisSerializer<Cach
     }
 
     @Override
-    public CachedAnalysisBundle deserialize(byte[] bytes) throws SerializationException {
+    public CachedAnalysisBundle deserialize(byte[] bytes) {
         if (bytes == null || bytes.length == 0) {
             return null;
         }

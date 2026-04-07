@@ -8,11 +8,16 @@ import com.checkstylehub.analyzer.entity.AnalyzerType;
 import com.checkstylehub.analyzer.exception.RepositoryAccessException;
 import com.checkstylehub.analyzer.repository.AnalysisRequestRepository;
 import com.checkstylehub.analyzer.repository.AnalysisResultRepository;
+import com.puppycrawl.tools.checkstyle.api.AuditEvent;
+import com.puppycrawl.tools.checkstyle.api.CheckstyleException;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -24,9 +29,9 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 /**
  * Service responsible for orchestrating the complete code analysis workflow.
@@ -55,7 +60,7 @@ public class AnalysisService {
 
     /**
      * Executes the complete analysis workflow.
-     * Steps: clone repository → find Java files → run Checkstyle and PMD in parallel → save results.
+     * Steps: clone the repository → find Java files → run Checkstyle and PMD in parallel → save results.
      * Status updates and logs are sent via WebSocket in real-time.
      *
      * @param requestId              the ID of the analysis request
@@ -63,15 +68,13 @@ public class AnalysisService {
      */
     public void startAnalysisFlow(Long requestId, String customCheckstyleConfig) {
         String logTopic = "/topic/logs/" + requestId;
-        Path tempDir = null;
-        String cacheKey;
-        CachedAnalysisBundle resultsForCache;
+        Optional<Path> tempDirHolder = Optional.empty();
 
         try {
             String repoUrl = transactionTemplate.execute(status ->
                     requestRepository.findById(requestId)
                             .map(AnalysisRequest::getRepoUrl)
-                            .orElseThrow(() -> new RuntimeException("Request not found")));
+                            .orElseThrow(() -> new IllegalStateException("Request not found")));
 
             logInfo("Перевіряю кеш та отримую останній коміт з віддаленого репозиторію...", logTopic);
             String commitHash = gitService.getLatestCommitHash(repoUrl);
@@ -81,157 +84,185 @@ public class AnalysisService {
                     : configurationService.getActiveConfigurationXml();
             String configHash = org.springframework.util.DigestUtils.md5DigestAsHex(
                     effectiveConfig.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            cacheKey = repoUrl + "_" + commitHash + "_" + configHash;
+            String cacheKey = repoUrl + "_" + commitHash + "_" + configHash;
 
-            CachedAnalysisBundle cached;
-            try {
-                cached = redisTemplate.opsForValue().get(cacheKey);
-            } catch (Exception ignored) {
-                cached = null;
-            }
+            CachedAnalysisBundle cached = readCachedBundle(cacheKey);
             if (cached != null && cached.getResults() != null) {
                 applyCachedResults(requestId, cached, logTopic);
                 return;
             }
 
             updateStatusAndLog(requestId, AnalysisRequest.RequestStatus.CLONING, "Починаю клонування...", logTopic);
-            tempDir = gitService.cloneRepository(repoUrl);
+            Path tempDir = gitService.cloneRepository(repoUrl);
+            tempDirHolder = Optional.of(tempDir);
 
-            logInfo("Клонування завершено. Шукаю Java файли...", logTopic);
-            List<Path> javaFiles = checkstyleService.findJavaFiles(tempDir);
-            if (javaFiles.isEmpty()) {
-                throw new IllegalStateException("Репозиторій не містить файлів Java (.java). Аналіз неможливий.");
-            }
-            logInfo("Знайдено " + javaFiles.size() + " Java файлів. Запускаю аналіз...", logTopic);
+            runFreshAnalysis(requestId, customCheckstyleConfig, logTopic, cacheKey, tempDir);
 
-            long linesOfCode;
-            try {
-                linesOfCode = metricsCalculationService.countLinesOfCode(javaFiles);
-            } catch (IOException e) {
-                throw new IllegalStateException("Не вдалося підрахувати рядки коду (LOC): " + e.getMessage(), e);
-            }
-
-            updateStatusAndLog(requestId, AnalysisRequest.RequestStatus.ANALYZING,
-                    "Запуск Checkstyle та PMD паралельно (ruleset " + PmdService.DEFAULT_RULESET + ")...", logTopic);
-
-            final Path analysisRoot = tempDir;
-            final List<Path> analysisJavaFiles = javaFiles;
-            final String analysisCheckstyleConfig = customCheckstyleConfig;
-
-            CompletableFuture<List<com.puppycrawl.tools.checkstyle.api.AuditEvent>> checkstyleFuture =
-                    CompletableFuture.supplyAsync(() -> {
-                        try {
-                            return checkstyleService.runCheckstyle(
-                                    analysisRoot, analysisJavaFiles, analysisCheckstyleConfig);
-                        } catch (Exception e) {
-                            logInfo("Checkstyle завершився з помилкою: " + e.getMessage(), logTopic);
-                            return new ArrayList<>();
-                        }
-                    });
-
-            CompletableFuture<List<PmdService.PmdViolation>> pmdFuture =
-                    CompletableFuture.supplyAsync(() -> {
-                        try {
-                            return pmdService.runPmd(analysisRoot, analysisJavaFiles);
-                        } catch (Exception e) {
-                            logInfo("PMD завершився з помилкою: " + e.getMessage(), logTopic);
-                            return new ArrayList<>();
-                        }
-                    });
-
-            CompletableFuture.allOf(checkstyleFuture, pmdFuture).join();
-
-            List<com.puppycrawl.tools.checkstyle.api.AuditEvent> checkstyleViolations = checkstyleFuture.join();
-            List<PmdService.PmdViolation> pmdViolations = pmdFuture.join();
-
-            logInfo("Checkstyle завершено. Знайдено " + checkstyleViolations.size() + " порушень.", logTopic);
-            logInfo("PMD завершено. Знайдено " + pmdViolations.size() + " порушень.", logTopic);
-
-            int totalViolations = checkstyleViolations.size() + pmdViolations.size();
-            logInfo("Збереження " + totalViolations + " результатів...", logTopic);
-
-            final Path cloneRoot = tempDir;
-            final List<com.puppycrawl.tools.checkstyle.api.AuditEvent> csEvents = checkstyleViolations;
-            final List<PmdService.PmdViolation> pmdEvents = pmdViolations;
-            final long loc = linesOfCode;
-
-            resultsForCache = transactionTemplate.execute(status -> {
-                AnalysisRequest request = requestRepository.findById(requestId)
-                        .orElseThrow(() -> new RuntimeException("Request not found"));
-                request = entityManager.merge(request);
-
-                int qualityScore = metricsCalculationService.computeQualityScore(
-                        csEvents, pmdEvents, loc, false);
-                request.setQualityScore(qualityScore);
-                requestRepository.save(request);
-
-                CachedAnalysisBundle bundle = new CachedAnalysisBundle();
-                bundle.setLinesOfCode(loc);
-                bundle.setQualityScore(qualityScore);
-                List<AnalysisResult> cachedResults = new ArrayList<>();
-                for (com.puppycrawl.tools.checkstyle.api.AuditEvent event : csEvents) {
-                    AnalysisResult result = new AnalysisResult();
-                    result.setRequest(request);
-                    result.setAnalyzerType(AnalyzerType.CHECKSTYLE);
-                    String relativePath = safeRelativizeToString(cloneRoot, Path.of(event.getFileName()));
-                    result.setFilePath(relativePath);
-                    result.setLineNumber(event.getLine());
-                    result.setSeverity(event.getSeverityLevel().getName());
-                    result.setMessage(event.getMessage());
-                    result.setCodeSnippet(extractCodeSnippet(event.getFileName(), event.getLine()));
-                    resultRepository.save(result);
-                    cachedResults.add(result);
-                }
-                for (PmdService.PmdViolation v : pmdEvents) {
-                    AnalysisResult result = new AnalysisResult();
-                    result.setRequest(request);
-                    result.setAnalyzerType(AnalyzerType.PMD);
-                    result.setFilePath(safeRelativizeToString(cloneRoot, Path.of(v.absoluteFilePath())));
-                    result.setLineNumber(v.line());
-                    result.setSeverity(v.severity());
-                    result.setMessage(v.message());
-                    result.setCodeSnippet(extractCodeSnippet(v.absoluteFilePath(), v.line()));
-                    resultRepository.save(result);
-                    cachedResults.add(result);
-                }
-                bundle.setResults(cachedResults);
-
-                entityManager.flush();
-                return bundle;
-            });
-
-            int qualityScore = resultsForCache != null && resultsForCache.getQualityScore() != null
-                    ? resultsForCache.getQualityScore()
-                    : 0;
-            logInfo("Результати успішно збережено в базу даних.", logTopic);
-            logInfo("Показник якості (Quality Score): " + qualityScore + "/100", logTopic);
-
-            if (resultsForCache != null) {
-                try {
-                    redisTemplate.opsForValue().set(cacheKey, resultsForCache, Duration.ofDays(7));
-                } catch (Exception e) {
-                    logInfo("Кеш Redis недоступний, результати лише в БД: " + e.getMessage(), logTopic);
-                }
-            }
-
-            updateStatusAndLog(requestId, AnalysisRequest.RequestStatus.COMPLETED,
-                    "Аналіз завершено. Знайдено " + totalViolations + " порушень (Checkstyle: "
-                            + checkstyleViolations.size() + ", PMD: " + pmdViolations.size() + ").", logTopic);
-
-        } catch (RepositoryAccessException | IllegalStateException | InterruptedException e) {
+        } catch (RepositoryAccessException | IllegalStateException | InterruptedException | IOException |
+                 DataAccessException | PersistenceException e) {
             handleFailure(requestId, e.getMessage(), logTopic);
-        } catch (Exception e) {
-            e.printStackTrace();
-            handleFailure(requestId, "Сталася неочікувана внутрішня помилка: " + e.getMessage(), logTopic);
+        } catch (CompletionException e) {
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            log.error("Analysis completion failed for request {}", requestId, e);
+            handleFailure(requestId, "Сталася неочікувана внутрішня помилка: " + cause.getMessage(), logTopic);
         } finally {
-            if (tempDir != null) {
-                try {
-                    gitService.deleteTempDirectory(tempDir);
-                    logInfo("Тимчасову директорію видалено.", logTopic);
-                } catch (Exception e) {
-                    logError("Не вдалося видалити тимчасову директорію: " + tempDir, logTopic);
-                }
-            }
+            tempDirHolder.ifPresent(tempDir -> {
+                gitService.deleteTempDirectory(tempDir);
+                logInfo("Тимчасову директорію видалено.", logTopic);
+            });
+        }
+    }
+
+    private CachedAnalysisBundle readCachedBundle(String cacheKey) {
+        try {
+            return redisTemplate.opsForValue().get(cacheKey);
+        } catch (RedisSystemException e) {
+            log.trace("Redis cache read failed for key {} with error {}", cacheKey, e.getMessage());
+            return null;
+        }
+    }
+
+    private void runFreshAnalysis(Long requestId, String customCheckstyleConfig, String logTopic,
+            String cacheKey, Path tempDir) throws IOException {
+
+        logInfo("Клонування завершено. Шукаю Java файли...", logTopic);
+        List<Path> javaFiles = checkstyleService.findJavaFiles(tempDir);
+        if (javaFiles.isEmpty()) {
+            throw new IllegalStateException("Репозиторій не містить файлів Java (.java). Аналіз неможливий.");
+        }
+        logInfo("Знайдено " + javaFiles.size() + " Java файлів. Запускаю аналіз...", logTopic);
+
+        long linesOfCode = countLinesOfCodeOrFail(javaFiles);
+
+        updateStatusAndLog(requestId, AnalysisRequest.RequestStatus.ANALYZING,
+                "Запуск Checkstyle та PMD паралельно (ruleset " + PmdService.DEFAULT_RULESET + ")...", logTopic);
+
+        final Path analysisRoot = tempDir;
+        final List<Path> analysisJavaFiles = javaFiles;
+        final String analysisCheckstyleConfig = customCheckstyleConfig;
+
+        CompletableFuture<List<AuditEvent>> checkstyleFuture =
+                CompletableFuture.supplyAsync(() -> runCheckstyleForAnalysis(
+                        analysisRoot, analysisJavaFiles, analysisCheckstyleConfig, logTopic));
+
+        CompletableFuture<List<PmdService.PmdViolation>> pmdFuture =
+                CompletableFuture.supplyAsync(() -> runPmdForAnalysis(
+                        analysisRoot, analysisJavaFiles, logTopic));
+
+        CompletableFuture.allOf(checkstyleFuture, pmdFuture).join();
+
+        List<AuditEvent> checkstyleViolations = checkstyleFuture.join();
+        List<PmdService.PmdViolation> pmdViolations = pmdFuture.join();
+
+        logInfo("Checkstyle завершено. Знайдено " + checkstyleViolations.size() + " порушень.", logTopic);
+        logInfo("PMD завершено. Знайдено " + pmdViolations.size() + " порушень.", logTopic);
+
+        int totalViolations = checkstyleViolations.size() + pmdViolations.size();
+        logInfo("Збереження " + totalViolations + " результатів...", logTopic);
+
+        final Path cloneRoot = tempDir;
+        final List<AuditEvent> csEvents = checkstyleViolations;
+        final List<PmdService.PmdViolation> pmdEvents = pmdViolations;
+        final long loc = linesOfCode;
+
+        CachedAnalysisBundle resultsForCache = transactionTemplate.execute(status ->
+                persistAnalysisResultsAndBuildCache(requestId, cloneRoot, csEvents, pmdEvents, loc));
+
+        int qualityScore = resultsForCache != null && resultsForCache.getQualityScore() != null
+                ? resultsForCache.getQualityScore()
+                : 0;
+        logInfo("Результати успішно збережено в базу даних.", logTopic);
+        logInfo("Показник якості (Quality Score): " + qualityScore + "/100", logTopic);
+
+        if (resultsForCache != null) {
+            writeCacheBundle(cacheKey, resultsForCache, logTopic);
+        }
+
+        updateStatusAndLog(requestId, AnalysisRequest.RequestStatus.COMPLETED,
+                "Аналіз завершено. Знайдено " + totalViolations + " порушень (Checkstyle: "
+                        + checkstyleViolations.size() + ", PMD: " + pmdViolations.size() + ").", logTopic);
+    }
+
+    private long countLinesOfCodeOrFail(List<Path> javaFiles) {
+        try {
+            return metricsCalculationService.countLinesOfCode(javaFiles);
+        } catch (IOException e) {
+            throw new IllegalStateException("Не вдалося підрахувати рядки коду (LOC): " + e.getMessage(), e);
+        }
+    }
+
+    private List<AuditEvent> runCheckstyleForAnalysis(Path analysisRoot, List<Path> analysisJavaFiles,
+            String analysisCheckstyleConfig, String logTopic) {
+        try {
+            return checkstyleService.runCheckstyle(
+                    analysisRoot, analysisJavaFiles, analysisCheckstyleConfig);
+        } catch (CheckstyleException e) {
+            logInfo("Checkstyle завершився з помилкою: " + e.getMessage(), logTopic);
+            return new ArrayList<>();
+        }
+    }
+
+    private List<PmdService.PmdViolation> runPmdForAnalysis(Path analysisRoot, List<Path> analysisJavaFiles,
+            String logTopic) {
+        try {
+            return pmdService.runPmd(analysisRoot, analysisJavaFiles);
+        } catch (IllegalStateException e) {
+            logInfo("PMD завершився з помилкою: " + e.getMessage(), logTopic);
+            return new ArrayList<>();
+        }
+    }
+
+    private CachedAnalysisBundle persistAnalysisResultsAndBuildCache(Long requestId, Path cloneRoot,
+            List<AuditEvent> csEvents, List<PmdService.PmdViolation> pmdEvents, long loc) {
+        AnalysisRequest request = requestRepository.findById(requestId)
+                .orElseThrow(() -> new IllegalStateException("Request not found"));
+        request = entityManager.merge(request);
+
+        int qualityScore = metricsCalculationService.computeQualityScore(
+                csEvents, pmdEvents, loc, false);
+        request.setQualityScore(qualityScore);
+        requestRepository.save(request);
+
+        CachedAnalysisBundle bundle = new CachedAnalysisBundle();
+        bundle.setLinesOfCode(loc);
+        bundle.setQualityScore(qualityScore);
+        List<AnalysisResult> cachedResults = new ArrayList<>();
+        for (AuditEvent event : csEvents) {
+            AnalysisResult result = new AnalysisResult();
+            result.setRequest(request);
+            result.setAnalyzerType(AnalyzerType.CHECKSTYLE);
+            String relativePath = SafePathRelativizer.relativize(cloneRoot, Path.of(event.getFileName()));
+            result.setFilePath(relativePath);
+            result.setLineNumber(event.getLine());
+            result.setSeverity(event.getSeverityLevel().getName());
+            result.setMessage(event.getMessage());
+            result.setCodeSnippet(extractCodeSnippet(event.getFileName(), event.getLine()));
+            resultRepository.save(result);
+            cachedResults.add(result);
+        }
+        for (PmdService.PmdViolation v : pmdEvents) {
+            AnalysisResult result = new AnalysisResult();
+            result.setRequest(request);
+            result.setAnalyzerType(AnalyzerType.PMD);
+            result.setFilePath(SafePathRelativizer.relativize(cloneRoot, Path.of(v.absoluteFilePath())));
+            result.setLineNumber(v.line());
+            result.setSeverity(v.severity());
+            result.setMessage(v.message());
+            result.setCodeSnippet(extractCodeSnippet(v.absoluteFilePath(), v.line()));
+            resultRepository.save(result);
+            cachedResults.add(result);
+        }
+        bundle.setResults(cachedResults);
+
+        entityManager.flush();
+        return bundle;
+    }
+
+    private void writeCacheBundle(String cacheKey, CachedAnalysisBundle resultsForCache, String logTopic) {
+        try {
+            redisTemplate.opsForValue().set(cacheKey, resultsForCache, Duration.ofDays(7));
+        } catch (RedisSystemException e) {
+            logInfo("Кеш Redis недоступний, результати лише в БД: " + e.getMessage(), logTopic);
         }
     }
 
@@ -241,7 +272,7 @@ public class AnalysisService {
         logInfo("Збереження " + rows.size() + " результатів...", logTopic);
         transactionTemplate.executeWithoutResult(status -> {
             AnalysisRequest request = requestRepository.findById(requestId)
-                    .orElseThrow(() -> new RuntimeException("Request not found"));
+                    .orElseThrow(() -> new IllegalStateException("Request not found"));
             request = entityManager.merge(request);
             if (cached.getQualityScore() != null) {
                 request.setQualityScore(cached.getQualityScore());
@@ -318,7 +349,7 @@ public class AnalysisService {
                 log.setTimestamp(java.time.LocalDateTime.now());
                 logRepository.save(log);
             });
-        } catch (Exception ex) {
+        } catch (NumberFormatException | DataAccessException ex) {
             log.trace("Could not persist analysis log for topic {}", topic, ex);
         }
     }
@@ -342,116 +373,8 @@ public class AnalysisService {
                 sb.append(String.format("%s %4d | %s%n", marker, i + 1, lines.get(i)));
             }
             return sb.toString();
-        } catch (Exception e) {
+        } catch (IOException e) {
             return "";
-        }
-    }
-
-    /**
-     * Computes a relative file path from base to other, with Windows compatibility.
-     * Handles edge cases like different drive letters and filesystem roots.
-     *
-     * @param base  the repository root path
-     * @param other the file path to relativize
-     * @return relative path as string with forward slashes
-     */
-    private String safeRelativizeToString(Path base, Path other) {
-        try {
-            if (base == null || other == null) {
-                return other == null ? "" : other.toString().replace('\\', '/');
-            }
-
-            Path baseAbs = base.toAbsolutePath().normalize();
-            Path otherAbs = other.toAbsolutePath().normalize();
-
-            boolean differentFs = !Objects.equals(baseAbs.getFileSystem(), otherAbs.getFileSystem());
-            boolean differentRoot = (baseAbs.getRoot() == null && otherAbs.getRoot() != null)
-                    || (baseAbs.getRoot() != null && !baseAbs.getRoot().equals(otherAbs.getRoot()));
-
-            String baseStr = baseAbs.toString();
-            String otherStr = otherAbs.toString();
-            String baseStrLc = baseStr.toLowerCase(Locale.ROOT);
-            String otherStrLc = otherStr.toLowerCase(Locale.ROOT);
-            if (otherStrLc.startsWith(baseStrLc)) {
-                String trimmed = otherStr.substring(baseStr.length());
-                if (trimmed.startsWith("\\") || trimmed.startsWith("/")) {
-                    trimmed = trimmed.substring(1);
-                }
-                String normalized = trimmed.replace('\\', '/');
-                if (!normalized.isEmpty()) {
-                    return normalized;
-                }
-            }
-
-            if (differentFs || differentRoot) {
-                String repoRootName = baseAbs.getFileName() != null ? baseAbs.getFileName().toString() : null;
-                if (repoRootName != null) {
-                    int nameCount = otherAbs.getNameCount();
-                    for (int i = 0; i < nameCount; i++) {
-                        if (otherAbs.getName(i).toString().equalsIgnoreCase(repoRootName)) {
-                            Path sub = otherAbs.subpath(i + 1, nameCount);
-                            String candidate = sub.toString().replace('\\', '/');
-                            if (!candidate.isEmpty()) {
-                                return candidate;
-                            }
-                            break;
-                        }
-                    }
-                }
-                String filenameOnly = otherAbs.getFileName() != null
-                        ? otherAbs.getFileName().toString()
-                        : otherAbs.toString();
-                return filenameOnly.replace('\\', '/');
-            }
-
-            String rel = baseAbs.relativize(otherAbs).toString().replace('\\', '/');
-            if (rel.startsWith("../") || rel.startsWith("..\\") || rel.contains(":\\") || rel.contains(":/")) {
-                if (otherStrLc.startsWith(baseStrLc)) {
-                    String trimmed = otherStr.substring(baseStr.length());
-                    if (trimmed.startsWith("\\") || trimmed.startsWith("/")) {
-                        trimmed = trimmed.substring(1);
-                    }
-                    String normalized = trimmed.replace('\\', '/');
-                    if (!normalized.isEmpty()) {
-                        return normalized;
-                    }
-                }
-                for (int i = 0; i < otherAbs.getNameCount(); i++) {
-                    if (otherAbs.getName(i).toString().equalsIgnoreCase("src")) {
-                        Path sub = otherAbs.subpath(i, otherAbs.getNameCount());
-                        String candidate = sub.toString().replace('\\', '/');
-                        if (!candidate.isEmpty()) {
-                            return candidate;
-                        }
-                        break;
-                    }
-                }
-                String leaf = otherAbs.getFileName() != null
-                        ? otherAbs.getFileName().toString()
-                        : otherAbs.toString();
-                return leaf.replace('\\', '/');
-            }
-            return rel;
-        } catch (IllegalArgumentException ex) {
-            try {
-                Path baseAbs = base.toAbsolutePath().normalize();
-                Path otherAbs = other.toAbsolutePath().normalize();
-                String baseStr = baseAbs.toString();
-                String otherStr = otherAbs.toString();
-                if (otherStr.toLowerCase(Locale.ROOT).startsWith(baseStr.toLowerCase(Locale.ROOT))) {
-                    String trimmed = otherStr.substring(baseStr.length());
-                    if (trimmed.startsWith("\\") || trimmed.startsWith("/")) {
-                        trimmed = trimmed.substring(1);
-                    }
-                    return trimmed.replace('\\', '/');
-                }
-                String leaf = otherAbs.getFileName() != null
-                        ? otherAbs.getFileName().toString()
-                        : otherAbs.toString();
-                return leaf.replace('\\', '/');
-            } catch (RuntimeException e) {
-                return other.toString().replace('\\', '/');
-            }
         }
     }
 }

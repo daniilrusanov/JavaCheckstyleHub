@@ -18,8 +18,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.UncheckedIOException;
 import java.net.ConnectException;
 
 import static org.springframework.http.HttpStatus.NOT_FOUND;
@@ -33,6 +35,10 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @RequiredArgsConstructor
 public class AiController {
 
+    private static final String OLLAMA_UNAVAILABLE = "Сервіс Ollama недоступний. "
+            + "Переконайтесь, що Ollama запущено (`ollama serve`) "
+            + "і потрібну модель завантажено (`ollama pull llama3`).";
+
     private final AnalysisResultRepository resultRepository;
     private final AnalysisRequestRepository requestRepository;
     private final AiExplanationRepository explanationRepository;
@@ -41,8 +47,8 @@ public class AiController {
     /**
      * Generates (or returns a cached) AI explanation for a single analysis finding.
      * <p>
-     * If an explanation already exists for the given result it is returned immediately
-     * without calling the LLM again. Otherwise the LLM is called, the result is persisted
+     * If an explanation already exists for the given result, it is returned immediately
+     * without calling the LLM again. Otherwise, the LLM is called, the result is persisted
      * and returned as plain Markdown text.
      *
      * @param resultId the ID of the {@link AnalysisResult} to explain
@@ -64,15 +70,9 @@ public class AiController {
                     String markdown;
                     try {
                         markdown = aiExplanationService.explain(result, user);
-                    } catch (RuntimeException e) {
-                        if (isConnectionRefused(e)) {
-                            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                                    "Сервіс Ollama недоступний. " +
-                                    "Переконайтесь, що Ollama запущено (`ollama serve`) " +
-                                    "і потрібну модель завантажено (`ollama pull llama3`).");
-                        }
-                        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                                "Помилка генерації AI пояснення: " + e.getMessage());
+                    } catch (UncheckedIOException | RestClientException | IllegalStateException |
+                             IllegalArgumentException e) {
+                        throw toOllamaResponseStatus(e, "Помилка генерації AI пояснення: ");
                     }
 
                     AiExplanation entity = new AiExplanation();
@@ -91,7 +91,7 @@ public class AiController {
      * experience level.
      *
      * @param requestId the ID of the completed analysis request
-     * @param user      the authenticated user
+     * @param user      an authenticated user
      * @return Markdown-formatted summary with improvement advice
      */
     @GetMapping("/summary/{requestId}")
@@ -107,15 +107,8 @@ public class AiController {
         try {
             String markdown = aiExplanationService.generateGeneralSummary(requestId, user);
             return ResponseEntity.ok(markdown);
-        } catch (RuntimeException e) {
-            if (isConnectionRefused(e)) {
-                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                        "Сервіс Ollama недоступний. " +
-                        "Переконайтесь, що Ollama запущено (`ollama serve`) " +
-                        "і потрібну модель завантажено (`ollama pull llama3`).");
-            }
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Помилка генерації зведення: " + e.getMessage());
+        } catch (UncheckedIOException | RestClientException | IllegalStateException | IllegalArgumentException e) {
+            throw toOllamaResponseStatus(e, "Помилка генерації зведення: ");
         }
     }
 
@@ -136,15 +129,8 @@ public class AiController {
                     body.getMessage(),
                     user);
             return ResponseEntity.ok(markdown);
-        } catch (RuntimeException e) {
-            if (isConnectionRefused(e)) {
-                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                        "Сервіс Ollama недоступний. " +
-                        "Переконайтесь, що Ollama запущено (`ollama serve`) " +
-                        "і потрібну модель завантажено (`ollama pull llama3`).");
-            }
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Помилка генерації AI пояснення: " + e.getMessage());
+        } catch (UncheckedIOException | RestClientException | IllegalStateException | IllegalArgumentException e) {
+            throw toOllamaResponseStatus(e, "Помилка генерації AI пояснення: ");
         }
     }
 
@@ -176,6 +162,13 @@ public class AiController {
             sb.append(lines[i]);
         }
         return sb.toString();
+    }
+
+    private ResponseStatusException toOllamaResponseStatus(Throwable e, String detailPrefix) {
+        if (isConnectionRefused(e)) {
+            return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, OLLAMA_UNAVAILABLE);
+        }
+        return new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, detailPrefix + e.getMessage());
     }
 
     /** Traverses the cause chain looking for a {@link ConnectException}. */

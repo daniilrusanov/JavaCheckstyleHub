@@ -106,8 +106,8 @@ public class CheckstyleService {
                     );
 
             Checker checker = new Checker();
-            // Must use Checkstyle's classloader so named checks (e.g. LineLength) resolve; context CL often fails in Spring.
-            checker.setModuleClassLoader(Checker.class.getClassLoader());
+            ClassLoader moduleLoader = Thread.currentThread().getContextClassLoader();
+            checker.setModuleClassLoader(moduleLoader != null ? moduleLoader : Checker.class.getClassLoader());
             checker.configure(config);
             checker.addListener(listener);
             checker.setBasedir(baseDir.toAbsolutePath().toString());
@@ -121,7 +121,7 @@ public class CheckstyleService {
 
             return violations;
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             throw new CheckstyleException("Failed to run Checkstyle analysis: " + e.getMessage(), e);
         }
     }

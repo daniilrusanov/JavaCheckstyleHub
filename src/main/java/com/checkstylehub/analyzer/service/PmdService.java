@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -28,13 +29,13 @@ public class PmdService {
      * @param javaFiles absolute or relative paths to {@code .java} files
      * @return violations with absolute file paths (for consistent relativization by callers)
      */
-    public List<PmdViolation> runPmd(Path baseDir, List<Path> javaFiles) throws Exception {
+    public List<PmdViolation> runPmd(Path baseDir, List<Path> javaFiles) {
         if (javaFiles.isEmpty()) {
             return List.of();
         }
         PMDConfiguration config = new PMDConfiguration();
         Language javaLang = LanguageRegistry.PMD.getLanguageById("java");
-        config.setDefaultLanguageVersion(javaLang.getLatestVersion());
+        config.setDefaultLanguageVersion(Objects.requireNonNull(javaLang).getLatestVersion());
         config.setSourceEncoding(StandardCharsets.UTF_8);
         config.collectFilesRecursively(false);
         config.addRuleSet("pmd-rules.xml");
@@ -69,6 +70,10 @@ public class PmdService {
                 ));
             }
             return out;
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("PMD analysis failed: " + e.getMessage(), e);
         }
     }
 

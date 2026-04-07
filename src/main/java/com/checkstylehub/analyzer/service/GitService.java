@@ -3,7 +3,10 @@ package com.checkstylehub.analyzer.service;
 import com.checkstylehub.analyzer.exception.RepositoryAccessException;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Ref;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -23,6 +26,11 @@ import java.util.Map;
 @Service
 public class GitService {
 
+    private static final Logger log = LoggerFactory.getLogger(GitService.class);
+
+    private static final String REF_HEAD = "HEAD";
+    private static final String PREFIX_REFS_HEADS = "refs/heads/";
+
     /**
      * Resolves the latest commit hash for the remote HEAD (default branch) without cloning.
      * <p>
@@ -35,32 +43,53 @@ public class GitService {
             Collection<Ref> refs = Git.lsRemoteRepository()
                     .setRemote(repoUrl)
                     .call();
-            Map<String, Ref> byName = new HashMap<>();
-            for (Ref r : refs) {
-                byName.put(r.getName(), r);
-            }
-            Ref head = byName.get("HEAD");
-            if (head == null) {
-                head = pickDefaultBranchRef(byName);
-            }
-            if (head == null) {
-                throw new RepositoryAccessException("Remote has no HEAD or branches");
-            }
-            Ref resolved = head;
-            while (resolved.isSymbolic()) {
-                String targetRefName = resolved.getTarget().getName();
-                resolved = byName.get(targetRefName);
-                if (resolved == null) {
-                    throw new RepositoryAccessException("Could not resolve symbolic HEAD to " + targetRefName);
-                }
-            }
-            if (resolved.getObjectId() == null) {
-                throw new RepositoryAccessException("HEAD ref has no object id");
-            }
-            return resolved.getObjectId().getName();
+            Map<String, Ref> byName = indexRefsByName(refs);
+            Ref head = resolveHeadRef(byName);
+            Ref resolved = resolveSymbolicChain(head, byName);
+            return requireCommitHash(resolved);
         } catch (GitAPIException e) {
             throw new RepositoryAccessException("Repository access error: " + e.getMessage(), e);
         }
+    }
+
+    private static Map<String, Ref> indexRefsByName(Collection<Ref> refs) {
+        Map<String, Ref> byName = new HashMap<>();
+        for (Ref r : refs) {
+            byName.put(r.getName(), r);
+        }
+        return byName;
+    }
+
+    private Ref resolveHeadRef(Map<String, Ref> byName) {
+        Ref head = byName.get(REF_HEAD);
+        if (head != null) {
+            return head;
+        }
+        Ref fallback = pickDefaultBranchRef(byName);
+        if (fallback == null) {
+            throw new RepositoryAccessException("Remote has no HEAD or branches");
+        }
+        return fallback;
+    }
+
+    private Ref resolveSymbolicChain(Ref head, Map<String, Ref> byName) {
+        Ref resolved = head;
+        while (resolved.isSymbolic()) {
+            String targetRefName = resolved.getTarget().getName();
+            resolved = byName.get(targetRefName);
+            if (resolved == null) {
+                throw new RepositoryAccessException("Could not resolve symbolic HEAD to " + targetRefName);
+            }
+        }
+        return resolved;
+    }
+
+    private String requireCommitHash(Ref resolved) {
+        ObjectId oid = resolved.getObjectId();
+        if (oid == null) {
+            throw new RepositoryAccessException("HEAD ref has no object id");
+        }
+        return oid.getName();
     }
 
     /**
@@ -68,10 +97,10 @@ public class GitService {
      */
     private Ref pickDefaultBranchRef(Map<String, Ref> byName) {
         List<String> preferred = List.of(
-                "refs/heads/main",
-                "refs/heads/master",
-                "refs/heads/trunk",
-                "refs/heads/develop"
+                PREFIX_REFS_HEADS + "main",
+                PREFIX_REFS_HEADS + "master",
+                PREFIX_REFS_HEADS + "trunk",
+                PREFIX_REFS_HEADS + "develop"
         );
         for (String name : preferred) {
             Ref r = byName.get(name);
@@ -81,7 +110,7 @@ public class GitService {
         }
         List<String> branchNames = new ArrayList<>();
         for (String name : byName.keySet()) {
-            if (name.startsWith("refs/heads/")) {
+            if (name.startsWith(PREFIX_REFS_HEADS)) {
                 branchNames.add(name);
             }
         }
@@ -137,7 +166,7 @@ public class GitService {
                     .map(Path::toFile)
                     .forEach(java.io.File::delete);
         } catch (IOException e) {
-            System.err.println("Failed to delete temporary directory: " + directory);
+            log.warn("Failed to delete temporary directory: {}", directory, e);
         }
     }
 }

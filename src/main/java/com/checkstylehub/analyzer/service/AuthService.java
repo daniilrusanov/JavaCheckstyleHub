@@ -34,7 +34,7 @@ public class AuthService {
      */
     @Transactional
     public AuthResponseDto register(RegisterRequestDto request) {
-        // Check if username already exists
+        // Check if a username already exists
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new AuthenticationException("Користувач з таким ім'ям вже існує");
         }
@@ -44,7 +44,7 @@ public class AuthService {
             throw new AuthenticationException("Користувач з таким email вже існує");
         }
 
-        // Create new user
+        // Create a new user
         User user = new User(
                 request.getUsername(),
                 request.getEmail(),
@@ -67,7 +67,7 @@ public class AuthService {
     }
 
     /**
-     * Authenticate user and return JWT token.
+     * Authenticate a user and return a JWT token.
      */
     @Transactional
     public AuthResponseDto login(LoginRequestDto request) {
@@ -78,7 +78,7 @@ public class AuthService {
                             request.getPassword()
                     )
             );
-        } catch (Exception e) {
+        } catch (org.springframework.security.core.AuthenticationException e) {
             throw new AuthenticationException("Невірне ім'я користувача або пароль");
         }
 

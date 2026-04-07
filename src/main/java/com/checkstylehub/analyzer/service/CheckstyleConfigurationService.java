@@ -7,7 +7,10 @@ import com.checkstylehub.analyzer.entity.CheckstyleConfiguration;
 import com.checkstylehub.analyzer.repository.CheckstyleConfigurationRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +25,8 @@ import java.nio.charset.StandardCharsets;
 @RequiredArgsConstructor
 public class CheckstyleConfigurationService {
 
+    private static final Logger log = LoggerFactory.getLogger(CheckstyleConfigurationService.class);
+
     private static final String DEFAULT_CONFIG_FILE = "default_checkstyle_rules.xml";
     private static final String DEFAULT_CONFIG_NAME = "default";
 
@@ -34,9 +39,8 @@ public class CheckstyleConfigurationService {
             if (configurationRepository.findByIsActiveTrue().isEmpty()) {
                 initializeDefaultConfiguration();
             }
-        } catch (Exception e) {
-            System.err.println("Warning: Could not initialize default configuration on startup: " + e.getMessage());
-            e.printStackTrace();
+        } catch (DataAccessException | IllegalStateException e) {
+            log.warn("Could not initialize default configuration on startup: {}", e.getMessage());
         }
     }
 

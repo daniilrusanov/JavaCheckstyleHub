@@ -17,7 +17,7 @@ import java.util.stream.Stream;
  *   <li>PMD: LOW = 4, MEDIUM* = 8, HIGH = 15</li>
  *   <li>Compilation error (if any): +50</li>
  *   <li>DD = (TDI / LOC) × 1000 (LOC ≥ 1)</li>
- *   <li>QS = round(100 × e^(−0.05 × DD)), clamped to [0, 100]</li>
+ *   <li>QS = round(100 × e^(−0.005 × DD)), clamped to [0, 100]</li>
  * </ul>
  */
 @Service

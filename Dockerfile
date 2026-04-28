@@ -15,7 +15,7 @@ RUN mvn clean package -DskipTests
 
 # Stage 2: Run
 # Using JDK instead of JRE because we need javac compiler for code snippet analysis
-FROM eclipse-temurin:17-jdk-alpine
+FROM eclipse-temurin:17-jdk
 WORKDIR /app
 
 # Copy built jar from previous stage
